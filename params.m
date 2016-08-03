@@ -1,9 +1,6 @@
 %parameters for 1D FEM
 %domain.N_el = 100;                                        %number of elements
-domain.l = 1/domain.N_el;                               %element length
-domain.conductivity = linspace(1,4,domain.N_el);       %conductivities
-% domain.conductivity = ones(1, domain.N_el);
-
+domain.l = 1/domain.N_el;                                  %element length
 heatSource.type = 'const';                              %type of heat source field; const is const in space
 heatSource.value = 0;                                   %heat source field
 
@@ -20,5 +17,10 @@ end
 if strcmp(boundary.type(2), 'essential')
     domain.nodes(end) = true;
 end
+
+%Finescale conductivity params
+fineCond.mu = 1;    %mean of log of lambda
+fineCond.sigma = 1; %sigma of log of lambda
+fineCond.Nsamples = 10;
 
 
