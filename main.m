@@ -10,6 +10,7 @@ Cmesh = genMesh(boundary, nCoarse);
 %Generate finescale dataset
 [x, Tf] = genFineData(Fmesh, heatSource, boundary, fineCond);
 
+
 %get params
 Cmesh.conductivity = linspace(1, 4, Cmesh.N_el);       %conductivities
 params;
