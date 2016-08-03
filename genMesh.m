@@ -13,6 +13,9 @@ if strcmp(boundary.type(2), 'essential')
     domain.nodes(end) = true;
 end
 
+%nodal coordinates
+domain.coordinates = [0:N_el]'*domain.l;
+
 
     
 end

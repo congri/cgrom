@@ -22,5 +22,8 @@ phi_1 = @(x) 1/sum(1./x);
 phi_2 = @(x) mean(x);
 phi = {phi_1; phi_2};
 
+%MCMC options
+MCMC.method = 'randomWalk';
+
 
 
