@@ -29,10 +29,10 @@ rng('shuffle');     %random number seed based on system time
 
 
 %preallocation of samples array
-out.samples = zeros(opts.nSamples, size(startValue, 2));
+out.samples = zeros(size(startValue, 1), opts.nSamples);
 out.log_p = zeros(opts.nSamples, 1);
-samplesTherm = zeros(opts.nThermalization, size(startValue, 2));
-samplesTherm(1, :) = startValue;
+samplesTherm = zeros(size(startValue, 1), opts.nThermalization);
+samplesTherm(:, 1) = startValue;
 
 x = startValue;
 
@@ -58,7 +58,7 @@ for i = 1:(opts.nThermalization - 1)
     if(strcmp(opts.method, 'randomWalk'))
         %Gaussian random walk MCMC
         
-        xProp = mvnrnd(x, opts.randomWalk.proposalCov);
+        xProp = mvnrnd(x, opts.randomWalk.proposalCov)';
         log_pProp = log_distribution(xProp);
         Metropolis = exp(log_pProp - log_p);
         
@@ -102,7 +102,7 @@ for i = 1:(opts.nThermalization - 1)
         accepted = accepted + 1;
 
     end
-    samplesTherm(i + 1, :) = x;
+    samplesTherm(:, i + 1) = x;
 
 end
 
@@ -141,12 +141,13 @@ end
 
 %Actual sampling
 accepted = 0;
-for i = 1:opts.nSamples
+j = 1;
+for i = 1:(opts.nSamples*(opts.nGap + 1))
 
     if(strcmp(opts.method, 'randomWalk'))
         %Gaussian random walk MCMC
 
-        xProp = mvnrnd(x, opts.randomWalk.proposalCov);
+        xProp = mvnrnd(x, opts.randomWalk.proposalCov)';
         log_pProp = log_distribution(xProp);
         Metropolis = exp(log_pProp - log_distribution(x));
 
@@ -192,12 +193,15 @@ for i = 1:opts.nSamples
         accepted = accepted + 1;
 
     end
-    out.samples(i, :) = x;
-    out.log_p(i) = log_p;
+    if(~mod(i, (opts.nGap + 1)))
+        out.samples(:, j) = x;
+        out.log_p(j) = log_p;
+        j = j + 1;
+    end
 
 end
 
-out.acceptance = accepted/opts.nSamples;
+out.acceptance = accepted/(opts.nSamples*(opts.nGap + 1));
 out.log_pEnd = log_p;
 
 
