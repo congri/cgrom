@@ -11,10 +11,10 @@ Fmesh = genMesh(boundary, nFine);
 Cmesh = genMesh(boundary, nCoarse);
 
 %Generate finescale dataset
-[x, Tf] = genFineData(Fmesh, heatSource, boundary, fineCond);
+[x, Tf, PhiArray] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
 
-theta_cf.S = eye(10);
-theta_c.theta = [-1; 1];
+theta_cf.S = .3*eye(nFine + 1);
+theta_c.theta = [2; 2];
 theta_c.sigma = 1;
 
 % If no parallel pool exists
@@ -26,12 +26,59 @@ end
 
 %store handle to every q_i in a cell array lq
 lq = cell(fineCond.nSamples, 1);
-parfor i = 1:fineCond.nSamples
-    lq{i} = @(Xi) log_q_i(Xi, x(:,i), Tf(:,i), theta_cf, theta_c, phi, Fmesh, Cmesh, heatSource, boundary);
-    %sample from every q_i
-    Xi_start = [1; 1; 1];
-    out(i) = MCMCsampler(lq{i}, Xi_start, MCMC);
+
+for k = 1:100
+    %Generate samples from every q_i
+    parfor i = 1:fineCond.nSamples
+        lq{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c, PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, W);
+        %sample from every q_i
+        out(i) = MCMCsampler(lq{i}, MCMC(i).Xi_start, MCMC(i));
+        MCMC(i).Xi_start = out(i).samples(:, end);
+        
+        %Refine step width
+        if(out(i).acceptance)
+            MCMC(i).randomWalk.proposalCov = (1/.6)*out(i).acceptance*MCMC(i).randomWalk.proposalCov;
+        else
+            MCMC(i).randomWalk.proposalCov = .2*MCMC(i).randomWalk.proposalCov;
+        end
+        
+        %Compute sufficient statistics
+        XMean(:, i) = mean(out(i).samples, 2);
+        XNormSqMean(i) = mean(sum(out(i).samples.^2));
+        temp(:,i) = cell2mat(out(i).data);
+        muCfSq(:,:,i) = reshape(temp(:,i).^2, nFine + 1, MCMC(i).nSamples);
+        muCfSqMean(:,i) = mean(muCfSq(:,:,i), 2);
+    end
+    theta_cf.S = diag(mean(muCfSqMean, 2));
+    %ensure invertability; noise vanishes at essential nodes
+    stabilityFactor = 1e-6;
+    if(~theta_cf.S(1))
+        theta_cf.S(1) = stabilityFactor;
+    end
+    if(~theta_cf.S(end))
+        theta_cf.S(end) = stabilityFactor;
+    end
+    
+    sumPhiSq = zeros(size(phi, 1), size(phi, 1));
+    sumPhiTXmean = zeros(size(phi, 1), 1);
+    S = zeros(nFine + 1);
+    for i = 1:fineCond.nSamples
+        sumPhiSq = sumPhiSq + PhiArray(:,:,i)'*PhiArray(:,:,i);
+        sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
+    end
+    theta_c.theta = sumPhiSq\sumPhiTXmean;
+    
+    sigmaSq = 0;
+    for i = 1:fineCond.nSamples
+        sigmaSq = sigmaSq + XNormSqMean(i) - 2*theta_c.theta'*PhiArray(:,:,i)'*XMean(:,i)...
+            + theta_c.theta'*PhiArray(:,:,i)'*PhiArray(:,:,i)*theta_c.theta;
+    end
+    sigmaSq = sigmaSq/(nCoarse*fineCond.nSamples);
+    theta_c.sigma = sqrt(sigmaSq);
+    thetaArray(:,k) = theta_c.theta
+    sigmaArray(k) = theta_c.sigma;
 end
+
 
 runtime = toc
 

@@ -31,6 +31,7 @@ rng('shuffle');     %random number seed based on system time
 %preallocation of samples array
 out.samples = zeros(size(startValue, 1), opts.nSamples);
 out.log_p = zeros(opts.nSamples, 1);
+out.data = cell(opts.nSamples, 1);
 samplesTherm = zeros(size(startValue, 1), opts.nThermalization);
 samplesTherm(:, 1) = startValue;
 
@@ -43,11 +44,12 @@ if(strcmp(opts.method, 'MALA'))
    zeroMean = zeros(1, size(x, 2));
    unitCov = eye(size(x, 2));
    invProposalCov = inv(opts.MALA.stepWidth^2*unitCov);
-   [log_p, d_log_p] = log_distribution(x);
+   %data allows to pass further data
+   [log_p, d_log_p, data] = log_distribution(x);
 
 else
     
-    log_p = log_distribution(x);
+    [log_p, data] = log_distribution(x);
 
 end
 
@@ -148,14 +150,14 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
         %Gaussian random walk MCMC
 
         xProp = mvnrnd(x, opts.randomWalk.proposalCov)';
-        log_pProp = log_distribution(xProp);
+        [log_pProp, dataProp] = log_distribution(xProp);
         Metropolis = exp(log_pProp - log_distribution(x));
 
     elseif(strcmp(opts.method, 'nonlocal'))
         %"Nonlocal" proposal distribution
         
         xProp = opts.nonlocal.rnd(opts.nonlocal.propMean, opts.nonlocal.propCov);
-        log_pProp = log_distribution(xProp);
+        [log_pProp, dataProp] = log_distribution(xProp);
         Metropolis = exp(log_pProp - log_p)*...
             ((opts.nonlocal.pdf(x, opts.nonlocal.propMean, opts.nonlocal.propCov))/...
             (opts.nonlocal.pdf(xProp, opts.nonlocal.propMean, opts.nonlocal.propCov)));
@@ -168,7 +170,7 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
         xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov);
         proposalExponent = -.5*(xProp - proposalMean)*invProposalCov*(xProp - proposalMean)';
         
-        [log_pProp, d_log_pProp] = log_distribution(xProp);
+        [log_pProp, d_log_pProp, dataProp] = log_distribution(xProp);
 
         inverseProposalMean = xProp  + .5*opts.MALA.stepWidth^2*d_log_pProp;
         invProposalExponent = -.5*(x - inverseProposalMean)*invProposalCov*(x - inverseProposalMean)';
@@ -187,6 +189,7 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
 
         x = xProp;
         log_p = log_pProp;
+        data = dataProp;
         if(strcmp(opts.method, 'MALA'))
             d_log_p = d_log_pProp;
         end
@@ -196,12 +199,17 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
     if(~mod(i, (opts.nGap + 1)))
         out.samples(:, j) = x;
         out.log_p(j) = log_p;
+        out.data{j} = data;
         j = j + 1;
     end
 
 end
 
 out.acceptance = accepted/(opts.nSamples*(opts.nGap + 1));
+if out.acceptance < .2
+    warning('Acceptance ratio is')
+    out.acceptance
+end
 out.log_pEnd = log_p;
 
 

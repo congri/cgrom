@@ -1,12 +1,11 @@
-function [lq] = log_q_i(Xi, x, Tf_i, theta_cf, theta_c, phi, Fmesh, Cmesh, heatSource, boundary)
+function [lq, mu] = log_q_i(Xi, Tf_i, theta_cf, theta_c, Phi, Fmesh, Cmesh, heatSource, boundary, W)
     
 Cmesh.conductivity = Xi;
 [Tc] = FEMmain(Cmesh, heatSource, boundary);
+% mu = interp1(Cmesh.coordinates, Tc, Fmesh.coordinates)
+mu = W*Tc;
 
-lq = log_p_cf(Tf_i, Fmesh.coordinates, Cmesh.coordinates, Tc, theta_cf.S) + ...
-    log_p_c(Xi, x, phi, theta_c.theta, theta_c.sigma, Fmesh.N_el, Cmesh.N_el);
-
-    
+lq = log_p_cf(Tf_i, mu, theta_cf.S) + log_p_c(Xi, Phi, theta_c.theta, theta_c.sigma);
     
 end
 
