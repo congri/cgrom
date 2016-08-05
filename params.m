@@ -10,29 +10,28 @@ boundary.q0 = [0; 1];
 %Finescale conductivity params
 fineCond.mu = 1;    %mean of log of lambda
 fineCond.sigma = 1; %sigma of log of lambda
-fineCond.nSamples = 4;
+fineCond.nSamples = 5;
 
 %Fine and coarse number of elements
-nFine = 9;
+nFine = 12;
 nCoarse = 3;
 assert(~mod(nFine, nCoarse), 'Error: Coarse mesh is not a divisor of fine mesh!')
 
 %Define basis functions for p_c here
-phi_1 = @(x) 1/sum(1./x);
+phi_1 = @(x) size(x, 1)/sum(1./x);
 phi_2 = @(x) mean(x);
 phi = {phi_1; phi_2};
 
 %MCMC options
 MCMC.method = 'randomWalk';                             %proposal type: randomWalk, nonlocal or MALA
-MCMC.nThermalization = 500;                              %thermalization steps
-MCMC.nSamples = 300;                                    %number of samples
+MCMC.nThermalization = 50;                              %thermalization steps
+MCMC.nSamples = 200;                                    %number of samples
 MCMC.nGap = 100;
 MCMC.Xi_start = ones(nCoarse, 1);
 %only for random walk
-stepWidth = .5;
+stepWidth = .1;
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
 MCMC = repmat(MCMC, fineCond.nSamples, 1);
-whos MCMC
 
 
 %prealloc of MCMC out structure

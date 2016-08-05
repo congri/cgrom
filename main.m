@@ -13,9 +13,9 @@ Cmesh = genMesh(boundary, nCoarse);
 %Generate finescale dataset
 [x, Tf, PhiArray] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
 
-theta_cf.S = .3*eye(nFine + 1);
-theta_c.theta = [2; 2];
-theta_c.sigma = 1;
+theta_cf.S = 10*eye(nFine + 1);
+theta_c.theta = [.5; .5];
+theta_c.sigma = 10;
 
 % If no parallel pool exists
 N_Threads = 2;
@@ -43,6 +43,9 @@ for k = 1:100
         end
         
         %Compute sufficient statistics
+        if any(any(out(i).samples < 0))
+            error('negative components')
+        end
         XMean(:, i) = mean(out(i).samples, 2);
         XNormSqMean(i) = mean(sum(out(i).samples.^2));
         temp(:,i) = cell2mat(out(i).data);
@@ -51,7 +54,7 @@ for k = 1:100
     end
     theta_cf.S = diag(mean(muCfSqMean, 2));
     %ensure invertability; noise vanishes at essential nodes
-    stabilityFactor = 1e-6;
+    stabilityFactor = 1e-9;
     if(~theta_cf.S(1))
         theta_cf.S(1) = stabilityFactor;
     end
@@ -61,7 +64,6 @@ for k = 1:100
     
     sumPhiSq = zeros(size(phi, 1), size(phi, 1));
     sumPhiTXmean = zeros(size(phi, 1), 1);
-    S = zeros(nFine + 1);
     for i = 1:fineCond.nSamples
         sumPhiSq = sumPhiSq + PhiArray(:,:,i)'*PhiArray(:,:,i);
         sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
@@ -76,7 +78,9 @@ for k = 1:100
     sigmaSq = sigmaSq/(nCoarse*fineCond.nSamples);
     theta_c.sigma = sqrt(sigmaSq);
     thetaArray(:,k) = theta_c.theta
-    sigmaArray(k) = theta_c.sigma;
+    sigmaArray(k) = theta_c.sigma
+    S = theta_cf.S
+    
 end
 
 
