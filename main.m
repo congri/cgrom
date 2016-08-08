@@ -13,10 +13,6 @@ Cmesh = genMesh(boundary, nCoarse);
 %Generate finescale dataset
 [x, Tf, PhiArray] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
 
-theta_cf.S = 10*eye(nFine + 1);
-theta_c.theta = [.5; .5];
-theta_c.sigma = 10;
-
 % If no parallel pool exists
 N_Threads = 2;
 if isempty(gcp('nocreate'))
@@ -33,6 +29,7 @@ for k = 1:100
         lq{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c, PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, W);
         %sample from every q_i
         out(i) = MCMCsampler(lq{i}, MCMC(i).Xi_start, MCMC(i));
+        out(i).log_pEnd
         MCMC(i).Xi_start = out(i).samples(:, end);
         
         %Refine step width

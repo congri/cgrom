@@ -2,9 +2,9 @@ function [T] = FEMmain(domain, heatSource, boundary)
 %Core of FEM simulation
 
 %compute global force vector
-F = getForce(domain, heatSource, boundary);
+[F, d_F] = getForce(domain, heatSource, boundary);
 
-K = getStiff(domain);
+[K, d_K] = getStiff(domain);
 
 %nodal temperatures
 T = K\F;

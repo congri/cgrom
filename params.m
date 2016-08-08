@@ -17,10 +17,15 @@ nFine = 12;
 nCoarse = 3;
 assert(~mod(nFine, nCoarse), 'Error: Coarse mesh is not a divisor of fine mesh!')
 
+%start values
+theta_cf.S = 10*eye(nFine + 1);
+theta_c.theta = [.5];
+theta_c.sigma = 10;
+
 %Define basis functions for p_c here
 phi_1 = @(x) size(x, 1)/sum(1./x);
 phi_2 = @(x) mean(x);
-phi = {phi_1; phi_2};
+phi = {phi_1};
 
 %MCMC options
 MCMC.method = 'randomWalk';                             %proposal type: randomWalk, nonlocal or MALA
