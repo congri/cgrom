@@ -3,6 +3,9 @@ clear all;
 addpath('./MCMCsampler')
 addpath('./util')
 
+%random number seed
+rng(0)
+
 tic;
 %load params
 params;
@@ -14,7 +17,7 @@ Cmesh = genMesh(boundary, nCoarse);
 [x, Tf, PhiArray] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
 
 % If no parallel pool exists
-N_Threads = 2;
+N_Threads = 5;
 if isempty(gcp('nocreate'))
     % Create with 2 workers
     parpool('local',N_Threads);
@@ -23,20 +26,33 @@ end
 %store handle to every q_i in a cell array lq
 lq = cell(fineCond.nSamples, 1);
 
-for k = 1:100
+for k = 1:maxIterations
     %Generate samples from every q_i
     parfor i = 1:fineCond.nSamples
         lq{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c, PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, W);
         %sample from every q_i
         out(i) = MCMCsampler(lq{i}, MCMC(i).Xi_start, MCMC(i));
-        out(i).log_pEnd
+        %avoid very low acceptances
+        while out(i).acceptance < .1
+            out(i) = MCMCsampler(lq{i}, MCMC(i).Xi_start, MCMC(i));
+            if strcmp(MCMC(i).method, 'MALA')
+                MCMC(i).MALA.stepWidth = .1*MCMC(i).MALA.stepWidth;
+            elseif strcmp(MCMC(i).method, 'randomWalk')
+                MCMC(i).randomWalk.proposalCov = .1*MCMC(i).randomWalk.proposalCov;
+            else
+            end
+            warning('Acceptance ratio below .1')
+        end
         MCMC(i).Xi_start = out(i).samples(:, end);
         
+        lp(i) = mean(out(i).log_p);
+        
         %Refine step width
-        if(out(i).acceptance)
-            MCMC(i).randomWalk.proposalCov = (1/.6)*out(i).acceptance*MCMC(i).randomWalk.proposalCov;
+        if strcmp(MCMC(i).method, 'MALA')
+            MCMC(i).MALA.stepWidth = (1/.5)*out(i).acceptance*MCMC(i).MALA.stepWidth;
+        elseif strcmp(MCMC(i).method, 'randomWalk')
+            MCMC(i).randomWalk.proposalCov = (1/.5)*out(i).acceptance*MCMC(i).randomWalk.proposalCov;
         else
-            MCMC(i).randomWalk.proposalCov = .2*MCMC(i).randomWalk.proposalCov;
         end
         
         %Compute sufficient statistics
@@ -49,6 +65,7 @@ for k = 1:100
         muCfSq(:,:,i) = reshape(temp(:,i).^2, nFine + 1, MCMC(i).nSamples);
         muCfSqMean(:,i) = mean(muCfSq(:,:,i), 2);
     end
+    lp
     theta_cf.S = diag(mean(muCfSqMean, 2));
     %ensure invertability; noise vanishes at essential nodes
     stabilityFactor = 1e-9;

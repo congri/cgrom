@@ -3,8 +3,8 @@ function [out] = MCMCsampler(log_distribution, startValue, opts)
 %get samples
 %By C. Grigo, July 2016
 % log_distribution:             function handle to log probability distribution and its
-%                               gradient
-% startValue:                   Initial value of Markov chain
+%                               gradient; gradient as column vector
+% startValue:                   Initial value of Markov chain; col. vec.
 % opts:                         MCMC sampling options structure
 %
 % opts:
@@ -25,7 +25,7 @@ function [out] = MCMCsampler(log_distribution, startValue, opts)
 % opts.MALA.stepWidth           step size parameter
 
 
-rng('shuffle');     %random number seed based on system time
+rng(opts.seed);     %random number seed based on system time
 
 
 %preallocation of samples array
@@ -41,15 +41,15 @@ accepted = 0;
 
 if(strcmp(opts.method, 'MALA'))
     
-   zeroMean = zeros(1, size(x, 2));
-   unitCov = eye(size(x, 2));
-   invProposalCov = inv(opts.MALA.stepWidth^2*unitCov);
+   zeroMean = zeros(1, size(x, 1));
+   unitCov = eye(size(x, 1));
+   invProposalCov = (opts.MALA.stepWidth^(-2))*unitCov;
    %data allows to pass further data
    [log_p, d_log_p, data] = log_distribution(x);
 
 else
     
-    [log_p, data] = log_distribution(x);
+    [log_p, ~, data] = log_distribution(x);
 
 end
 
@@ -73,16 +73,16 @@ for i = 1:(opts.nThermalization - 1)
             ((opts.nonlocal.pdf(x, opts.nonlocal.propMean, opts.nonlocal.propCov))/...
             (opts.nonlocal.pdf(xProp, opts.nonlocal.propMean, opts.nonlocal.propCov)));
         
-    elseif(strcmp(opts.method, 'MALA'))
+    elseif strcmp(opts.method, 'MALA')
         %Metropolis adjusted Langevin algorithm
         
         proposalMean = x + .5*opts.MALA.stepWidth^2*d_log_p;
-        xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov);
-        proposalExponent = -.5*(xProp - proposalMean)*invProposalCov*(xProp - proposalMean)';
+        xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov)';
+        proposalExponent = -.5*(xProp - proposalMean)'*invProposalCov*(xProp - proposalMean);
         
         [log_pProp, d_log_pProp] = log_distribution(xProp);
         inverseProposalMean = xProp  + .5*opts.MALA.stepWidth^2*d_log_pProp;
-        invProposalExponent = -.5*(x - inverseProposalMean)*invProposalCov*(x - inverseProposalMean)';
+        invProposalExponent = -.5*(x - inverseProposalMean)'*invProposalCov*(x - inverseProposalMean);
         
         Metropolis = exp(invProposalExponent - proposalExponent + log_pProp - log_p);
      
@@ -150,7 +150,7 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
         %Gaussian random walk MCMC
 
         xProp = mvnrnd(x, opts.randomWalk.proposalCov)';
-        [log_pProp, dataProp] = log_distribution(xProp);
+        [log_pProp, ~, dataProp] = log_distribution(xProp);
         Metropolis = exp(log_pProp - log_distribution(x));
 
     elseif(strcmp(opts.method, 'nonlocal'))
@@ -167,13 +167,13 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
         %Metropolis adjusted Langevin algorithm
         
         proposalMean = x + .5*opts.MALA.stepWidth^2*d_log_p;
-        xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov);
-        proposalExponent = -.5*(xProp - proposalMean)*invProposalCov*(xProp - proposalMean)';
+        xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov)';
+        proposalExponent = -.5*(xProp - proposalMean)'*invProposalCov*(xProp - proposalMean);
         
         [log_pProp, d_log_pProp, dataProp] = log_distribution(xProp);
 
         inverseProposalMean = xProp  + .5*opts.MALA.stepWidth^2*d_log_pProp;
-        invProposalExponent = -.5*(x - inverseProposalMean)*invProposalCov*(x - inverseProposalMean)';
+        invProposalExponent = -.5*(x - inverseProposalMean)'*invProposalCov*(x - inverseProposalMean);
 
         Metropolis = exp(invProposalExponent - proposalExponent + log_pProp - log_p);
         
@@ -184,7 +184,7 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
     end
 
     r = rand;
-    if(r < Metropolis)
+    if r < Metropolis
         %Metropolis acceptance. Go to xProp
 
         x = xProp;
@@ -208,7 +208,7 @@ end
 out.acceptance = accepted/(opts.nSamples*(opts.nGap + 1));
 if out.acceptance < .2
     warning('Acceptance ratio is')
-    out.acceptance
+    acc = out.acceptance
 end
 out.log_pEnd = log_p;
 

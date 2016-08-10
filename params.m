@@ -4,8 +4,8 @@ heatSource.value = 0;                                   %heat source field
 
 %boundary conditions, 1 element is left, 2 is right boundary
 boundary.type = {'essential', 'natural'};
-boundary.T0 = [0; 0];
-boundary.q0 = [0; 1];
+boundary.T0 = [3; 1];
+boundary.q0 = [1; 1];
 
 %Finescale conductivity params
 fineCond.mu = 1;    %mean of log of lambda
@@ -18,25 +18,30 @@ nCoarse = 3;
 assert(~mod(nFine, nCoarse), 'Error: Coarse mesh is not a divisor of fine mesh!')
 
 %start values
-theta_cf.S = 10*eye(nFine + 1);
-theta_c.theta = [.5];
-theta_c.sigma = 10;
+theta_cf.S = 1*eye(nFine + 1);
+theta_c.theta = [1; 1];
+theta_c.sigma = 1;
 
 %Define basis functions for p_c here
 phi_1 = @(x) size(x, 1)/sum(1./x);
 phi_2 = @(x) mean(x);
-phi = {phi_1};
+phi = {phi_1; phi_2};
 
 %MCMC options
 MCMC.method = 'randomWalk';                             %proposal type: randomWalk, nonlocal or MALA
+MCMC.seed = 1;
 MCMC.nThermalization = 50;                              %thermalization steps
-MCMC.nSamples = 200;                                    %number of samples
-MCMC.nGap = 100;
+MCMC.nSamples = 40;                                    %number of samples
+MCMC.nGap = 80;
 MCMC.Xi_start = ones(nCoarse, 1);
 %only for random walk
-stepWidth = .1;
+MCMC.MALA.stepWidth = .1;
+stepWidth = 1e-3;
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
 MCMC = repmat(MCMC, fineCond.nSamples, 1);
+
+%stopping criterion of EM
+maxIterations = 400;
 
 
 %prealloc of MCMC out structure
