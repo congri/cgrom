@@ -151,7 +151,8 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
 
         xProp = mvnrnd(x, opts.randomWalk.proposalCov)';
         [log_pProp, ~, dataProp] = log_distribution(xProp);
-        Metropolis = exp(log_pProp - log_distribution(x));
+        Metropolis = exp(log_pProp - log_p);
+        pause
 
     elseif(strcmp(opts.method, 'nonlocal'))
         %"Nonlocal" proposal distribution

@@ -1,11 +1,11 @@
-function [log_q, d_log_q, mu] = log_q_i(Xi, Tf_i, theta_cf, theta_c, Phi, Fmesh, Cmesh, heatSource, boundary, W)
+function [log_q, d_log_q, mu_pcf] = log_q_i(Xi, Tf_i, theta_cf, theta_c, Phi, Fmesh, Cmesh, heatSource, boundary, W)
 
 Cmesh.conductivity = Xi;
 
 [lg_p_c, d_lg_p_c] = log_p_c(Xi, Phi, theta_c.theta, theta_c.sigma);
-[lg_p_cf, d_lg_p_cf, mu] = log_p_cf(Tf_i, Cmesh, heatSource, boundary, W, theta_cf.S);
+[lg_p_cf, d_lg_p_cf, WTc] = log_p_cf(Tf_i, Cmesh, heatSource, boundary, W, theta_cf.S);
 %this might be wrong!!! 8.8.16
-mu = Tf_i - mu;
+mu_pcf = Tf_i - WTc;
 
 log_q = lg_p_cf + lg_p_c;
 

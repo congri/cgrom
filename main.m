@@ -19,13 +19,14 @@ Cmesh = genMesh(boundary, nCoarse);
 % If no parallel pool exists
 N_Threads = 5;
 if isempty(gcp('nocreate'))
-    % Create with 2 workers
+    % Create with N_Threads workers
     parpool('local',N_Threads);
 end
 
 %store handle to every q_i in a cell array lq
 lq = cell(fineCond.nSamples, 1);
 
+sw = zeros(fineCond.nSamples, maxIterations);
 for k = 1:maxIterations
     %Generate samples from every q_i
     parfor i = 1:fineCond.nSamples
@@ -36,20 +37,21 @@ for k = 1:maxIterations
         while out(i).acceptance < .1
             out(i) = MCMCsampler(lq{i}, MCMC(i).Xi_start, MCMC(i));
             if strcmp(MCMC(i).method, 'MALA')
-                MCMC(i).MALA.stepWidth = .1*MCMC(i).MALA.stepWidth;
+                MCMC(i).MALA.stepWidth = (1/.8)*(out(i).acceptance + (1 - out(i).acceptance)*.1)*MCMC(i).MALA.stepWidth;
             elseif strcmp(MCMC(i).method, 'randomWalk')
-                MCMC(i).randomWalk.proposalCov = .1*MCMC(i).randomWalk.proposalCov;
+                MCMC(i).randomWalk.proposalCov = .8*MCMC(i).randomWalk.proposalCov;
             else
             end
             warning('Acceptance ratio below .1')
         end
-        MCMC(i).Xi_start = out(i).samples(:, end);
+        sw(i, k) = MCMC(i).MALA.stepWidth;
+%         MCMC(i).Xi_start = out(i).samples(:, end);
         
         lp(i) = mean(out(i).log_p);
         
         %Refine step width
         if strcmp(MCMC(i).method, 'MALA')
-            MCMC(i).MALA.stepWidth = (1/.5)*out(i).acceptance*MCMC(i).MALA.stepWidth;
+            MCMC(i).MALA.stepWidth = (1/.8)*out(i).acceptance*MCMC(i).MALA.stepWidth;
         elseif strcmp(MCMC(i).method, 'randomWalk')
             MCMC(i).randomWalk.proposalCov = (1/.5)*out(i).acceptance*MCMC(i).randomWalk.proposalCov;
         else
@@ -84,6 +86,11 @@ for k = 1:maxIterations
     end
     theta_c.theta = sumPhiSq\sumPhiTXmean;
     
+    %Start next chain at mean of p_c
+    for i = 1:fineCond.nSamples
+       MCMC(i).Xi_start = PhiArray(:,:,i)*theta_c.theta; 
+    end
+    
     sigmaSq = 0;
     for i = 1:fineCond.nSamples
         sigmaSq = sigmaSq + XNormSqMean(i) - 2*theta_c.theta'*PhiArray(:,:,i)'*XMean(:,i)...
@@ -93,7 +100,7 @@ for k = 1:maxIterations
     theta_c.sigma = sqrt(sigmaSq);
     thetaArray(:,k) = theta_c.theta
     sigmaArray(k) = theta_c.sigma
-    S = theta_cf.S
+    S = diag(theta_cf.S)
     
 end
 

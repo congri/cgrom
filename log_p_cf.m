@@ -1,13 +1,13 @@
-function [log_p, d_log_p, mu] = log_p_cf(Tf, Cmesh, heatSource, boundary, W, S)
+function [log_p, d_log_p, WTc] = log_p_cf(Tf, Cmesh, heatSource, boundary, W, S)
 %Coarse-to-fine map
 %ignore constant prefactor
 % log_p = -.5*logdet(S, 'chol') - .5*(Tf - mu)'*(S\(Tf - mu));
 %diagonal S
 
 [Tc, d_r, K] = FEMmain(Cmesh, heatSource, boundary);
-mu = W*Tc;
+WTc = W*Tc;
 
-log_p = -.5*sum(log(diag(S))) - .5*(Tf - mu)'*(S\(Tf - mu));
+log_p = -.5*sum(log(diag(S))) - .5*(Tf - WTc)'*(S\(Tf - WTc));
 
 if nargout > 1
     lambda = get_adjoints(K, W, Tc, Tf, 0*Tf, S, Cmesh);
