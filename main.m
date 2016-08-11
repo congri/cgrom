@@ -17,7 +17,7 @@ Cmesh = genMesh(boundary, nCoarse);
 [x, Tf, PhiArray] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
 
 % If no parallel pool exists
-N_Threads = 5;
+N_Threads = min(12, fineCond.nSamples);
 if isempty(gcp('nocreate'))
     % Create with N_Threads workers
     parpool('local',N_Threads);
@@ -27,10 +27,15 @@ end
 lq = cell(fineCond.nSamples, 1);
 
 sw = zeros(fineCond.nSamples, maxIterations);
+Warray = 0*repmat(theta_cf.W,1,1,maxIterations);
 for k = 1:maxIterations
+    
+    Warray(:,:,k ) = theta_cf.W;
+    Wplt(:,k) = theta_cf.W(:);
+    
     %Generate samples from every q_i
     parfor i = 1:fineCond.nSamples
-        lq{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c, PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, W);
+        lq{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c, PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, theta_cf.W);
         %sample from every q_i
         out(i) = MCMCsampler(lq{i}, MCMC(i).Xi_start, MCMC(i));
         %avoid very low acceptances
@@ -63,12 +68,38 @@ for k = 1:maxIterations
         end
         XMean(:, i) = mean(out(i).samples, 2);
         XNormSqMean(i) = mean(sum(out(i).samples.^2));
+        
+        %for S
+        %temp contains coarse temperatures for all coarse nodes and all fine data samples
         temp(:,i) = cell2mat(out(i).data);
-        muCfSq(:,:,i) = reshape(temp(:,i).^2, nFine + 1, MCMC(i).nSamples);
-        muCfSqMean(:,i) = mean(muCfSq(:,:,i), 2);
+        %Tc_samples(:,:,i) contains coarse nodal temperature samples (1 sample == 1 column) for data
+        %sample i
+        Tc_samples(:,:,i) = reshape(temp(:,i), nCoarse + 1, MCMC(i).nSamples);
+        %only valid for diagonal S here!
+        temp2(:, i) = mean((repmat(Tf(:, i) - theta_cf.mu, 1, MCMC(i).nSamples) - theta_cf.W*Tc_samples(:,:,i)).^2, 2);
+        
+        %for W
+        %sample mean under q_i
+        Tc_mean(:,i) = mean(Tc_samples(:,:,i), 2);
+        %First factor for matrix W
+        Wa(:,:,i) = (Tf(:, i) - theta_cf.mu)*Tc_mean(:, i)';
     end
+    
+    for i = 1:fineCond.nSamples
+        for l = 1:MCMC(i).nSamples
+            Tc_dyadic(:,:,l) = Tc_samples(:,l,i)*Tc_samples(:,l,i)';
+        end
+        Tc_dyadic_mean(:,:,i) = mean(Tc_dyadic, 3);
+    end
+    %Mean along data samples
+    Tc_dyadic_mean_mean = mean(Tc_dyadic_mean, 3);
+    Wa_mean = mean(Wa, 3);
+    theta_cf.W = Wa_mean/Tc_dyadic_mean_mean;
+    
+    Wout = theta_cf.W
     lp
-    theta_cf.S = diag(mean(muCfSqMean, 2));
+    %averaging over samples i
+    theta_cf.S = .5*diag(mean(temp2, 2)) + .5*theta_cf.S;
     %ensure invertability; noise vanishes at essential nodes
     stabilityFactor = 1e-9;
     if(~theta_cf.S(1))
@@ -85,6 +116,7 @@ for k = 1:maxIterations
         sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
     end
     theta_c.theta = sumPhiSq\sumPhiTXmean;
+    theta_c.theta = [1; 0];
     
     %Start next chain at mean of p_c
     for i = 1:fineCond.nSamples
@@ -98,7 +130,7 @@ for k = 1:maxIterations
     end
     sigmaSq = sigmaSq/(nCoarse*fineCond.nSamples);
     theta_c.sigma = sqrt(sigmaSq);
-    thetaArray(:,k) = theta_c.theta
+    thetaArray(:,k) = theta_c.theta;
     sigmaArray(k) = theta_c.sigma
     S = diag(theta_cf.S)
     
