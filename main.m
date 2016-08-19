@@ -2,6 +2,9 @@
 clear all;
 addpath('./MCMCsampler')
 addpath('./util')
+addpath('./FEM')
+addpath('./model')
+addpath('./params')
 
 %random number seed
 rng(0)
@@ -17,7 +20,7 @@ Cmesh = genMesh(boundary, nCoarse);
 [x, Tf, PhiArray] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
 
 % If no parallel pool exists
-N_Threads = min(12, fineCond.nSamples);
+N_Threads = min(14, fineCond.nSamples);
 if isempty(gcp('nocreate'))
     % Create with N_Threads workers
     parpool('local',N_Threads);
@@ -94,12 +97,12 @@ for k = 1:maxIterations
     %Mean along data samples
     Tc_dyadic_mean_mean = mean(Tc_dyadic_mean, 3);
     Wa_mean = mean(Wa, 3);
-    theta_cf.W = Wa_mean/Tc_dyadic_mean_mean;
+    %theta_cf.W = (1 - mix_W)*(Wa_mean/Tc_dyadic_mean_mean) + mix_W*theta_cf.W;
     
     Wout = theta_cf.W
     lp
-    %averaging over samples i
-    theta_cf.S = .5*diag(mean(temp2, 2)) + .5*theta_cf.S;
+    %decelerate convergence of S
+    theta_cf.S = (1 - mix_S)*diag(mean(temp2, 2)) + mix_S*theta_cf.S;
     %ensure invertability; noise vanishes at essential nodes
     stabilityFactor = 1e-9;
     if(~theta_cf.S(1))
@@ -115,8 +118,7 @@ for k = 1:maxIterations
         sumPhiSq = sumPhiSq + PhiArray(:,:,i)'*PhiArray(:,:,i);
         sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
     end
-    theta_c.theta = sumPhiSq\sumPhiTXmean;
-    theta_c.theta = [1; 0];
+    theta_c.theta = (1 - mix_theta)*(sumPhiSq\sumPhiTXmean) + mix_theta*theta_c.theta;
     
     %Start next chain at mean of p_c
     for i = 1:fineCond.nSamples
@@ -129,8 +131,8 @@ for k = 1:maxIterations
             + theta_c.theta'*PhiArray(:,:,i)'*PhiArray(:,:,i)*theta_c.theta;
     end
     sigmaSq = sigmaSq/(nCoarse*fineCond.nSamples);
-    theta_c.sigma = sqrt(sigmaSq);
-    thetaArray(:,k) = theta_c.theta;
+    theta_c.sigma = (1 - mix_sigma)*sqrt(sigmaSq) + mix_sigma*theta_c.sigma;
+    thetaArray(:,k) = theta_c.theta
     sigmaArray(k) = theta_c.sigma
     S = diag(theta_cf.S)
     
