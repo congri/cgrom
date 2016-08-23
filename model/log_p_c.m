@@ -11,12 +11,8 @@ function [log_p, d_log_p, data] = log_p_c(Xq, Phi, theta, sigma)
 mu  = Phi*theta;    %mean
 
 %ignore constant prefactor
-if any(Xq < 0)
-    log_p = -Inf;
-%     warning('Xq has negative component')
-else
-    log_p = - size(Xq, 1)*log(sigma) - (1/(2*sigma^2))*(Xq - mu)'*(Xq - mu);
-end
+log_p = - size(Xq, 1)*log(sigma) - (1/(2*sigma^2))*(Xq - mu)'*(Xq - mu);
+
 if nargout > 1
     d_log_p = (1/sigma^2)*(mu - Xq);
     

@@ -41,7 +41,7 @@ accepted = 0;
 
 if(strcmp(opts.method, 'MALA'))
     
-   zeroMean = zeros(1, size(x, 1));
+   d = size(x, 1);
    unitCov = eye(size(x, 1));
    invProposalCov = (opts.MALA.stepWidth^(-2))*unitCov;
    %data allows to pass further data
@@ -77,7 +77,8 @@ for i = 1:(opts.nThermalization - 1)
         %Metropolis adjusted Langevin algorithm
         
         proposalMean = x + .5*opts.MALA.stepWidth^2*d_log_p;
-        xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov)';
+%         xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov)';
+        xProp = proposalMean + opts.MALA.stepWidth*normrnd(0, 1, d, 1);
         proposalExponent = -.5*(xProp - proposalMean)'*invProposalCov*(xProp - proposalMean);
         
         [log_pProp, d_log_pProp] = log_distribution(xProp);
@@ -167,7 +168,8 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
         %Metropolis adjusted Langevin algorithm
         
         proposalMean = x + .5*opts.MALA.stepWidth^2*d_log_p;
-        xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov)';
+%         xProp = proposalMean + opts.MALA.stepWidth*mvnrnd(zeroMean, unitCov)';
+        xProp = proposalMean + opts.MALA.stepWidth*normrnd(0, 1, d, 1);
         proposalExponent = -.5*(xProp - proposalMean)'*invProposalCov*(xProp - proposalMean);
         
         [log_pProp, d_log_pProp, dataProp] = log_distribution(xProp);
