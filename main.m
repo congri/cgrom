@@ -95,10 +95,11 @@ for k = 1:maxIterations
     %Mean along data samples
     Tc_dyadic_mean_mean = mean(Tc_dyadic_mean, 3);
     Wa_mean = mean(Wa, 3);
+    if(~Winterp)
 %     theta_cf.W = (1 - mix_W)*(Wa_mean/Tc_dyadic_mean_mean) + mix_W*theta_cf.W;
-    
     theta_cf.W = compW(Tc_dyadic_mean_mean, Wa_mean,...
         inv(theta_cf.S), theta_cf.W, paramIndices, constIndices);
+    end
     
     Wout = theta_cf.W
 %     lp
@@ -112,7 +113,7 @@ for k = 1:maxIterations
         sumPhiSq = sumPhiSq + PhiArray(:,:,i)'*PhiArray(:,:,i);
         sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
     end
-    %theta_c.theta = (1 - mix_theta)*(sumPhiSq\sumPhiTXmean) + mix_theta*theta_c.theta;
+    theta_c.theta = (1 - mix_theta)*(sumPhiSq\sumPhiTXmean) + mix_theta*theta_c.theta;
     
     %Start next chain at mean of p_c
     for i = 1:fineCond.nSamples
