@@ -1,4 +1,5 @@
-%Main script for coarse-graining/reduced order modeling
+%% Main script for coarse-graining/reduced order modeling
+%% preamble
 clear all;
 addpath('./MCMCsampler')
 addpath('./util')
@@ -9,24 +10,37 @@ addpath('./params')
 %random number seed
 % rng(0)
 rng('shuffle')
-
 tic;
-%load params
+
+%% load params
 params;
 
+%% Generate fine and coarse meshes
 Fmesh = genMesh(boundary, nFine);
 Cmesh = genMesh(boundary, nCoarse);
 
-%Generate finescale dataset
-[x, Tf, PhiArray] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
+%% Generate finescale dataset
+if fineCond.genData
+    [x, Tf, PhiArray] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
+else
+    load('./data/fineData/fineData')
+end
+sumPhiSq = zeros(size(phi, 1), size(phi, 1));
+for i = 1:fineCond.nSamples
+    sumPhiSq = sumPhiSq + PhiArray(:,:,i)'*PhiArray(:,:,i);
+    %take MCMC initializations at mode of p_c
+    MCMC(i).Xi_start = PhiArray(:,:,i)*theta_c.theta;
+end
+sumPhiSqInv = inv(sumPhiSq);
 
-% If no parallel pool exists
+%% Create parallel pool
 N_Threads = min(15, fineCond.nSamples);
 if isempty(gcp('nocreate'))
     % Create with N_Threads workers
     parpool('local',N_Threads);
 end
 
+%% EM optimization - main body
 %store handle to every q_i in a cell array lq
 lq = cell(fineCond.nSamples, 1);
 
@@ -54,7 +68,7 @@ for k = 1:maxIterations
             warning('Acceptance ratio below .1')
         end
         sw(i, k) = MCMC(i).MALA.stepWidth;
-%         MCMC(i).Xi_start = out(i).samples(:, end);
+        %         MCMC(i).Xi_start = out(i).samples(:, end);
         
         lp(i) = mean(out(i).log_p);
         
@@ -96,28 +110,26 @@ for k = 1:maxIterations
     Tc_dyadic_mean_mean = mean(Tc_dyadic_mean, 3);
     Wa_mean = mean(Wa, 3);
     if(~Winterp)
-%     theta_cf.W = (1 - mix_W)*(Wa_mean/Tc_dyadic_mean_mean) + mix_W*theta_cf.W;
-    theta_cf.W = compW(Tc_dyadic_mean_mean, Wa_mean,...
-        inv(theta_cf.S), theta_cf.W, paramIndices, constIndices);
+        %     theta_cf.W = (1 - mix_W)*(Wa_mean/Tc_dyadic_mean_mean) + mix_W*theta_cf.W;
+        theta_cf.W = compW(Tc_dyadic_mean_mean, Wa_mean,...
+            inv(theta_cf.S), theta_cf.W, paramIndices, constIndices);
     end
     
-    Wout = theta_cf.W
-%     lp
+%     Wout = theta_cf.W
+    %     lp
     %decelerate convergence of S
-    theta_cf.S = (1 - mix_S)*diag(mean(temp2, 2)) + mix_S*theta_cf.S + (1e-8)*eye(size(theta_cf.S, 1));
-
+    theta_cf.S = (1 - mix_S)*diag(mean(temp2, 2)) + mix_S*theta_cf.S + (1e-6)*eye(size(theta_cf.S, 1));
     
-    sumPhiSq = zeros(size(phi, 1), size(phi, 1));
+    
     sumPhiTXmean = zeros(size(phi, 1), 1);
     for i = 1:fineCond.nSamples
-        sumPhiSq = sumPhiSq + PhiArray(:,:,i)'*PhiArray(:,:,i);
         sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
     end
-    theta_c.theta = (1 - mix_theta)*(sumPhiSq\sumPhiTXmean) + mix_theta*theta_c.theta;
+    theta_c.theta = (1 - mix_theta)*(sumPhiSqInv*sumPhiTXmean) + mix_theta*theta_c.theta;
     
     %Start next chain at mean of p_c
     for i = 1:fineCond.nSamples
-       MCMC(i).Xi_start = PhiArray(:,:,i)*theta_c.theta; 
+        MCMC(i).Xi_start = PhiArray(:,:,i)*theta_c.theta;
     end
     
     sigmaSq = 0;
@@ -130,7 +142,7 @@ for k = 1:maxIterations
     theta_c.sigma = (1 - mix_sigma)*sqrt(sigmaSq) + mix_sigma*theta_c.sigma + sigmaOffset;
     thetaArray(:,k) = theta_c.theta
     sigmaArray(k) = theta_c.sigma
-    S = diag(theta_cf.S)
+    S = diag(theta_cf.S)'
     
 end
 

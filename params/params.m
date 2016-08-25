@@ -8,25 +8,29 @@ boundary.T0 = [10; 1];
 boundary.q0 = [1; 400];
 
 %% Finescale conductivity params
-fineCond.dist = 'uniform';  %uniform or Gaussian (dist of log conductivity)
-%for Gaussian
-fineCond.mu = 1.2;    %mean of log of lambda
-fineCond.sigma = .3; %sigma of log of lambda
+fineCond.genData = false;
+fineCond.dist = 'uniform';  %uniform, gaussian or binary (dist of log conductivity)
 fineCond.nSamples = 45;
-%for uniform
-fineCond.lo = 2;
-fineCond.up = 20;
+if strcmp(fineCond.dist, 'gaussian')
+    fineCond.mu = 1.2;    %mean of log of lambda
+    fineCond.sigma = .3; %sigma of log of lambda
+elseif (strcmp(fineCond.dist, 'uniform') || strcmp(fineCond.dist, 'binary'))
+    %for uniform & binary
+    fineCond.lo = 2;
+    fineCond.up = 10;
+    contrast = fineCond.up/fineCond.lo;
+    %for binary
+    if strcmp(fineCond.dist, 'binary')
+        fineCond.p_lo = .4;
+    end
+else
+    error('unknown fineCond distribution');
+end
 
 %% Fine and coarse number of elements
-nFine = 8;
+nFine = 16;
 nCoarse = 4;
 assert(~mod(nFine, nCoarse), 'Error: Coarse mesh is not a divisor of fine mesh!')
-
-%%start values
-theta_cf.S = 1*eye(nFine + 1);
-theta_cf.mu = zeros(nFine + 1, 1);
-theta_c.theta = [.25; .25; .25; .25];
-theta_c.sigma = 2;
 
 %% Coarse to fine interpolation matrix W
 FperC = nFine/nCoarse;
@@ -84,17 +88,28 @@ phi_1 = @(x) log(size(x, 1)/sum(1./x));
 phi_2 = @(x) log(mean(x));
 phi_3 = @(x) log(max(x));
 phi_4 = @(x) log(min(x));
-phi = {phi_1; phi_2; phi_3; phi_4};
+phi_5 = @(x) log(mean(x.^2));
+phi_6 = @(x) log(mean(x.^3));
+phi_7 = @(x) log(mean(x.^4));
+phi_8 = @(x) log(mean(x.^5));
+phi_9 = @(x) log(secOrderFeature(x));   %sum_i x_i*x_{i + 1}
+phi = {phi_2; phi_9};
+
+%% start values
+theta_cf.S = 10*eye(nFine + 1);
+theta_cf.mu = zeros(nFine + 1, 1);
+theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
+theta_c.sigma = 1;
 
 %% MCMC options
 MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
-MCMC.seed = 4;
-MCMC.nThermalization = 100;                              %thermalization steps
-MCMC.nSamples = 30;                                    %number of samples
-MCMC.nGap = 500;
+MCMC.seed = 8;
+MCMC.nThermalization = 1000;                              %thermalization steps
+MCMC.nSamples = 50;                                    %number of samples
+MCMC.nGap = 200;
 MCMC.Xi_start = zeros(nCoarse, 1);
 %only for random walk
-MCMC.MALA.stepWidth = 1e-4*theta_c.sigma;
+MCMC.MALA.stepWidth = 1e-2;
 stepWidth = 1e-1;
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
 MCMC = repmat(MCMC, fineCond.nSamples, 1);
@@ -109,8 +124,8 @@ out = repmat(out, fineCond.nSamples, 1);
 
 %% EM options
 %Control convergence velocity - take weighted mean of adjacent parameter estimates
-mix_sigma = 0;
-mix_S = 0;
+mix_sigma = 0.5;
+mix_S = 0.5;
 mix_W = 0;
 mix_theta = 0;
 %stopping criterion of EM

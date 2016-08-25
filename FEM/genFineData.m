@@ -8,6 +8,11 @@ if strcmp(fineCond.dist, 'uniform')
 elseif strcmp(fineCond.dist, 'gaussian')
     x = normrnd(fineCond.mu, fineCond.sigma, domain.N_el, fineCond.nSamples);
     cond = exp(x);
+elseif strcmp(fineCond.dist, 'binary')
+    r = rand(domain.N_el, fineCond.nSamples);
+    cond = fineCond.lo*ones(domain.N_el, fineCond.nSamples);
+    cond(r > fineCond.p_lo) = fineCond.up;
+    x = log(cond);
 else
     error('unknown FOM conductivity distribution');
 end
@@ -22,6 +27,8 @@ for i = 1:fineCond.nSamples
     domain.conductivity = cond(:, i);
     Tf(:,i) = FEMmain(domain, heatSource, boundary);
 end
+
+save('./data/fineData/fineData', 'x', 'Tf', 'PhiArray');
     
 end
 

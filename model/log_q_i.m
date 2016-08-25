@@ -1,6 +1,12 @@
 function [log_q, d_log_q, Tc] = log_q_i(Xi, Tf_i, theta_cf, theta_c, Phi, Fmesh, Cmesh, heatSource, boundary, W)
 
 Cmesh.conductivity = exp(Xi);
+if any(Cmesh.conductivity < 1e-8)
+    warning('very small conductivity')
+    Cmesh.conductivity
+    pause
+    assert(~any(Cmesh.conductivity < 1e-15), 'Error: numerically 0 conductivity')
+end
 
 [lg_p_c, d_lg_p_c] = log_p_c(Xi, Phi, theta_c.theta, theta_c.sigma);
 [lg_p_cf, d_lg_p_cf, Tc] = log_p_cf(Tf_i, Cmesh, heatSource, boundary, W, theta_cf.S);
