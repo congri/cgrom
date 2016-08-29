@@ -7,8 +7,6 @@ addpath('./FEM')
 addpath('./model')
 addpath('./params')
 
-%random number seed
-% rng(0)
 rng('shuffle')
 tic;
 
@@ -46,6 +44,8 @@ lq = cell(fineCond.nSamples, 1);
 
 sw = zeros(fineCond.nSamples, maxIterations);
 Warray = 0*repmat(theta_cf.W,1,1,maxIterations);
+thetaArray(:, 1) = theta_c.theta
+sigmaArray(1) = theta_c.sigma
 for k = 1:maxIterations
     
     Warray(:,:,k ) = theta_cf.W;
@@ -140,8 +140,8 @@ for k = 1:maxIterations
     sigmaSq = sigmaSq/(nCoarse*fineCond.nSamples);
     sigmaOffset = 1e-8;
     theta_c.sigma = (1 - mix_sigma)*sqrt(sigmaSq) + mix_sigma*theta_c.sigma + sigmaOffset;
-    thetaArray(:,k) = theta_c.theta
-    sigmaArray(k) = theta_c.sigma
+    thetaArray(:,k + 1) = theta_c.theta
+    sigmaArray(k + 1) = theta_c.sigma
     S = diag(theta_cf.S)'
     
 end
