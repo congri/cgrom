@@ -8,20 +8,20 @@ boundary.T0 = [10; 1];
 boundary.q0 = [1; 400];
 
 %% Finescale conductivity params
-fineCond.genData = true;
-fineCond.dist = 'uniform';  %uniform, gaussian or binary (dist of log conductivity)
-fineCond.nSamples = 45;
-if strcmp(fineCond.dist, 'gaussian')
-    fineCond.mu = 1.2;    %mean of log of lambda
-    fineCond.sigma = .3; %sigma of log of lambda
-elseif (strcmp(fineCond.dist, 'uniform') || strcmp(fineCond.dist, 'binary'))
+fineData.genData = true;
+fineData.dist = 'uniform';  %uniform, gaussian or binary (dist of log conductivity)
+fineData.nSamples = 45;
+if strcmp(fineData.dist, 'gaussian')
+    fineData.mu = 1.2;    %mean of log of lambda
+    fineData.sigma = .3; %sigma of log of lambda
+elseif (strcmp(fineData.dist, 'uniform') || strcmp(fineData.dist, 'binary'))
     %for uniform & binary
-    fineCond.lo = 2;
-    fineCond.up = 20;
-    contrast = fineCond.up/fineCond.lo;
+    fineData.lo = 2;
+    fineData.up = 20;
+    contrast = fineData.up/fineData.lo;
     %for binary
-    if strcmp(fineCond.dist, 'binary')
-        fineCond.p_lo = .4;
+    if strcmp(fineData.dist, 'binary')
+        fineData.p_lo = .4;
     end
 else
     error('unknown fineCond distribution');
@@ -93,7 +93,8 @@ phi_6 = @(x) log(mean(x.^3));
 phi_7 = @(x) log(mean(x.^4));
 phi_8 = @(x) log(mean(x.^5));
 phi_9 = @(x) log(secOrderFeature(x));   %sum_i x_i*x_{i + 1}
-phi = {phi_1; phi_2; phi_3; phi_4; phi_5; phi_6; phi_7; phi_8; phi_9};
+phi = {phi_1; phi_2};
+nBasis = numel(phi);
 
 %% start values
 theta_cf.S = 1*eye(nFine + 1);
@@ -104,15 +105,15 @@ theta_c.sigma = 2;
 %% MCMC options
 MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
 MCMC.seed = 11;
-MCMC.nThermalization = 500;                              %thermalization steps
-MCMC.nSamples = 100;                                    %number of samples
+MCMC.nThermalization = 100;                              %thermalization steps
+MCMC.nSamples = 30;                                    %number of samples
 MCMC.nGap = 200;
 MCMC.Xi_start = zeros(nCoarse, 1);
 %only for random walk
-MCMC.MALA.stepWidth = 2e-3;
+MCMC.MALA.stepWidth = 7e-3;
 stepWidth = 1e-1;
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
-MCMC = repmat(MCMC, fineCond.nSamples, 1);
+MCMC = repmat(MCMC, fineData.nSamples, 1);
 
 %prealloc of MCMC out structure
 out.samples = zeros(nCoarse, MCMC(1).nSamples);
@@ -120,7 +121,7 @@ out.log_p = zeros(MCMC(1).nSamples, 1);
 out.data = cell(MCMC(1).nSamples, 1);
 out.acceptance = 0;
 out.log_pEnd = 0;
-out = repmat(out, fineCond.nSamples, 1);
+out = repmat(out, fineData.nSamples, 1);
 
 %% EM options
 %Control convergence velocity - take weighted mean of adjacent parameter estimates
@@ -128,8 +129,11 @@ mix_sigma = 0;
 mix_S = 0;
 mix_W = 0;
 mix_theta = 0;
-%stopping criterion of EM
-maxIterations = 500;
+
+%% Object containing EM optimization optimization
+EM = EMstats;
+EM = EM.setMaxIterations(5);
+EM = EM.prealloc(fineData, nFine, nCoarse, nBasis);           %preallocation of data arrays
 
 
 
