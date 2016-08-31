@@ -88,6 +88,16 @@ for i = 1:(domain.N_el + 1)
     
 end
 K = sparse(r, c, Kv);
+K_full = K + 1 - 1;
+
+if (any(any(isinf(K_full))) || any(any(isnan(K_full))) || rcond(K_full) < 1e-15)
+    domain.conductivity
+    K_full
+    K_full_inv = inv(K_full)
+    K_full*K_full_inv
+    error('Singular stiffness matrix')
+end
+    
     
 end
 

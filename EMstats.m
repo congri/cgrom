@@ -42,29 +42,33 @@ classdef EMstats
             assert(~mod(nFine, nCoarse), 'Error: Coarse mesh is not a divisor of fine mesh!')
             
             %% for data record, single precision is sufficient
-            obj.MCMCStepWidth = zeros(fineData.nSamples, obj.maxIterations, 'single');
+            obj.MCMCStepWidth = zeros(fineData.nSamples, obj.maxIterations + 1, 'single');
             obj.W = zeros(nFine + 1, nCoarse + 1, obj.maxIterations, 'single');
             obj.theta = zeros(nBasis, obj.maxIterations + 1, 'single');
             obj.sigma = zeros(obj.maxIterations + 1, 1, 'single');
-            obj.S = zeros(nFine + 1, nFine + 1, obj.maxIterations, 'single');
+            obj.S = zeros(nFine + 1, nFine + 1, obj.maxIterations + 1, 'single');
             obj.mu = zeros(nFine + 1, obj.maxIterations, 'single');
         end
         
         function plotData(obj)
             %plot the final data
             f = figure;
+            set(f, 'Position', [680 678 900 700]) %[position x, psition y, width, height]
             subplot(2, 2, 1)
             iterations = 1:(obj.maxIterations + 1);
             p_theta = plot(iterations, obj.theta);
+            set(gca, 'fontsize', 15)
             set(p_theta, 'linewidth', 2)
             xlabel('iteration i')
             ylabel('\theta_c')
             xlim([1 obj.maxIterations + 1])
+            ylim([-3 3])
             axis square
             grid on
             
             subplot(2, 2, 2)
             p_sigma = plot(iterations, obj.sigma);
+            set(gca, 'fontsize', 15)
             set(p_sigma, 'linewidth', 2)
             axis square
             grid on
@@ -79,11 +83,23 @@ classdef EMstats
                 Splt(:, i) = diag(obj.S(:, :, i));
             end
             p_S = plot(iterations, Splt, 'k');
-            set(p_S, 'linewidth', 2)
+            set(gca, 'fontsize', 15)
+            set(p_S, 'linewidth', 1)
             axis square
             grid on
             xlabel('iteration i')
-            ylabel('\sigma')
+            ylabel('S')
+            xlim([1 obj.maxIterations + 1])
+            
+            subplot(2, 2, 4)
+            
+            p_sw = semilogy(iterations, obj.MCMCStepWidth, 'k');
+            set(gca, 'fontsize', 15)
+            set(p_sw, 'linewidth', 1)
+            axis square
+            grid on
+            xlabel('iteration i')
+            ylabel('step width')
             xlim([1 obj.maxIterations + 1])
             
         end

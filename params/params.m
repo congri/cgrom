@@ -10,7 +10,7 @@ boundary.q0 = [1; 400];
 %% Finescale conductivity params
 fineData.genData = true;
 fineData.dist = 'uniform';  %uniform, gaussian or binary (dist of log conductivity)
-fineData.nSamples = 45;
+fineData.nSamples = 16;
 if strcmp(fineData.dist, 'gaussian')
     fineData.mu = 1.2;    %mean of log of lambda
     fineData.sigma = .3; %sigma of log of lambda
@@ -93,25 +93,25 @@ phi_6 = @(x) log(mean(x.^3));
 phi_7 = @(x) log(mean(x.^4));
 phi_8 = @(x) log(mean(x.^5));
 phi_9 = @(x) log(secOrderFeature(x));   %sum_i x_i*x_{i + 1}
-phi = {phi_1; phi_2};
+phi = {phi_1; phi_2; phi_3; phi_4; phi_5; phi_6; phi_7};
 nBasis = numel(phi);
 
 %% start values
 theta_cf.S = 1*eye(nFine + 1);
 theta_cf.mu = zeros(nFine + 1, 1);
 theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
-theta_c.sigma = 2;
+theta_c.sigma = 1;
 
 %% MCMC options
-MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
-MCMC.seed = 11;
-MCMC.nThermalization = 100;                              %thermalization steps
-MCMC.nSamples = 30;                                    %number of samples
-MCMC.nGap = 200;
+MCMC.method = 'randomWalk';                             %proposal type: randomWalk, nonlocal or MALA
+MCMC.seed = 12;
+MCMC.nThermalization = 200;                              %thermalization steps
+MCMC.nSamples = 50;                                    %number of samples
+MCMC.nGap = 50;
 MCMC.Xi_start = zeros(nCoarse, 1);
 %only for random walk
-MCMC.MALA.stepWidth = 7e-3;
-stepWidth = 1e-1;
+MCMC.MALA.stepWidth = 1.5e-2;
+stepWidth = 1e-3;
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
 MCMC = repmat(MCMC, fineData.nSamples, 1);
 
@@ -125,14 +125,14 @@ out = repmat(out, fineData.nSamples, 1);
 
 %% EM options
 %Control convergence velocity - take weighted mean of adjacent parameter estimates
-mix_sigma = 0;
-mix_S = 0;
+mix_sigma = 0.5;
+mix_S = 0.5;
 mix_W = 0;
 mix_theta = 0;
 
 %% Object containing EM optimization optimization
 EM = EMstats;
-EM = EM.setMaxIterations(5);
+EM = EM.setMaxIterations(50);
 EM = EM.prealloc(fineData, nFine, nCoarse, nBasis);           %preallocation of data arrays
 
 

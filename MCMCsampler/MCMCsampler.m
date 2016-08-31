@@ -103,7 +103,6 @@ for i = 1:(opts.nThermalization - 1)
             d_log_p = d_log_pProp;
         end
         accepted = accepted + 1;
-
     end
     samplesTherm(:, i + 1) = x;
 
@@ -211,6 +210,18 @@ out.acceptance = accepted/(opts.nSamples*(opts.nGap + 1));
 if out.acceptance < .2
     warning('Acceptance ratio is')
     acc = out.acceptance
+    x
+    log_p
+    log_pProp
+    if(strcmp(opts.method, 'MALA'))
+        d_log_p
+        d_log_pProp
+        proposalMean
+        inverseProposalMean
+        invProposalExponent
+        proposalExponent
+        opts.MALA.stepWidth
+    end
 end
 out.log_pEnd = log_p;
 

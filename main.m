@@ -21,6 +21,7 @@ Cmesh = genMesh(boundary, nCoarse);
 %% Generate finescale dataset
 if fineData.genData
     [x, Tf, PhiArray, sumPhiSqInv] = genFineData(Fmesh, phi, heatSource, boundary, fineData, nFine, nCoarse);
+    sumPhiSq = inv(sumPhiSqInv);
 else
     load('./data/fineData/fineData')
 end
@@ -39,32 +40,38 @@ log_qi = cell(fineData.nSamples, 1);
 %collect data in data arrays
 k = 1;
 collectData;
-for k = 2:(EM.maxIterations + 1)    
+for k = 2:(EM.maxIterations + 1)
     %Generate samples from every q_i
     parfor i = 1:fineData.nSamples
         log_qi{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c, PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, theta_cf.W);
         %sample from every q_i
         out(i) = MCMCsampler(log_qi{i}, MCMC(i).Xi_start, MCMC(i));
+        if any(any(imag(out(i).samples)))
+           error('Imaginary samples') 
+        end
         %avoid very low acceptances
         while out(i).acceptance < .1
             out(i) = MCMCsampler(log_qi{i}, MCMC(i).Xi_start, MCMC(i));
+            %if there is a second loop iteration, take last sample as initial position
+            MCMC(i).Xi_start = 0*out(i).samples(:,end);
             if strcmp(MCMC(i).method, 'MALA')
-                MCMC(i).MALA.stepWidth = (1/.8)*(out(i).acceptance + (1 - out(i).acceptance)*.1)*MCMC(i).MALA.stepWidth;
+                MCMC(i).MALA.stepWidth = (1/.9)*(out(i).acceptance + (1 - out(i).acceptance)*.1)*MCMC(i).MALA.stepWidth;
             elseif strcmp(MCMC(i).method, 'randomWalk')
-                MCMC(i).randomWalk.proposalCov = .8*MCMC(i).randomWalk.proposalCov;
+                MCMC(i).randomWalk.proposalCov = .2*MCMC(i).randomWalk.proposalCov;
+                                MCMC(i).randomWalk.proposalCov = (1/.7)*(out(i).acceptance + (1 - out(i).acceptance)*.1)*MCMC(i).randomWalk.proposalCov;
             else
                 error('Unknown MCMC method')
             end
             warning('Acceptance ratio below .1')
         end
         
-%         log_qi_mean(i) = mean(out(i).log_p);
+        %         log_qi_mean(i) = mean(out(i).log_p);
         
         %Refine step width
         if strcmp(MCMC(i).method, 'MALA')
-            MCMC(i).MALA.stepWidth = (1/.8)*out(i).acceptance*MCMC(i).MALA.stepWidth;
+            MCMC(i).MALA.stepWidth = (1/.9)*out(i).acceptance*MCMC(i).MALA.stepWidth;
         elseif strcmp(MCMC(i).method, 'randomWalk')
-            MCMC(i).randomWalk.proposalCov = (1/.5)*out(i).acceptance*MCMC(i).randomWalk.proposalCov;
+            MCMC(i).randomWalk.proposalCov = (1/.7)*out(i).acceptance*MCMC(i).randomWalk.proposalCov;
         else
         end
         
@@ -81,7 +88,8 @@ for k = 2:(EM.maxIterations + 1)
         %First factor for matrix W
         Wa(:, :, i) = (Tf(:, i) - theta_cf.mu)*mean(Tc_samples(:, :, i), 2)';
     end
-    
+        
+    %% Compute params of p_cf
     Tc_dyadic_mean = TcDyadicMean(Tc_samples, fineData.nSamples, MCMC);
     Wa_mean = mean(Wa, 3);
     if(~Winterp)
@@ -89,32 +97,55 @@ for k = 2:(EM.maxIterations + 1)
             inv(theta_cf.S), theta_cf.W, paramIndices, constIndices);
     end
     
-%     Wout = theta_cf.W
+    %     Wout = theta_cf.W
     %decelerate convergence of S
     theta_cf.S = (1 - mix_S)*diag(mean(p_cf_exponent, 2)) + mix_S*theta_cf.S + (1e-6)*eye(size(theta_cf.S, 1));
     
+    %% Compute theta_c and sigma if there is a prior on theta_c, sigma
     
+    %sum_i Phi_i^T <X^i>_qi
     sumPhiTXmean = zeros(size(phi, 1), 1);
     for i = 1:fineData.nSamples
         sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
     end
-    theta_c.theta = (1 - mix_theta)*(sumPhiSqInv*sumPhiTXmean) + mix_theta*theta_c.theta;
+    
+    %first element in sigmaSqTheta_c is sigma, the rest is theta_c
+%     dF_dTheta = @(sigmaSqTheta_c) dF_dtheta(sigmaSqTheta_c, fineData.nSamples, nCoarse, sum(XNormSqMean),...
+%         sumPhiTXmean, sumPhiSq);
+    %solve equation system of zero gradient with fsolve; use last set of parameters as
+    %initialization
+    %using fsolve
+    fsolve_options = optimoptions('fsolve');
+    fsolve_options.MaxFunEvals = 3000*(numel(theta_c.theta) + 1);
+    fsolve_options.MaxIter = 10000;
+    fsolve_options.Algorithm = 'trust-region-reflective';
+%     [sigmaSqTheta_cOpt, fval] = fsolve(dF_dTheta, [0; (1/size(theta_c.theta, 1))*ones(size(theta_c.theta, 1), 1)]...
+%         + 2*rand(size(theta_c.theta, 1) + 1, 1) - 1, fsolve_options)
+    
+    
+    EqSys = @(theta) thetacOpt(theta, fineData.nSamples, nCoarse, sum(XNormSqMean),...
+    sumPhiTXmean, sumPhiSq);
+    [theta_c.theta, fval] = fsolve(EqSys, theta_c.theta, fsolve_options)
+    sigmaOffset = 1e-4;
+    theta_c.sigma = sigmaOpt(theta_c.theta, fineData.nSamples, nCoarse, sum(XNormSqMean),...
+    sumPhiTXmean, sumPhiSq) + sigmaOffset;
+    
+    
+%     theta_c.sigma = (1 - mix_sigma)*exp(.5*sigmaSqTheta_cOpt(1)) + mix_sigma*theta_c.sigma + sigmaOffset;
+%     theta_c.theta = (1 - mix_theta)*sigmaSqTheta_cOpt(2:end) + mix_theta*theta_c.theta;
+    %set components of theta to zero that almost vanish
+%     theta_c_threshold = 1e-9;
+%     theta_c.theta(abs(theta_c.theta)/max(abs(theta_c.theta)) < theta_c_threshold) = 0;
     curr_theta = theta_c.theta
+    curr_sigma = theta_c.sigma
     
     %Start next chain at mean of p_c
     for i = 1:fineData.nSamples
         MCMC(i).Xi_start = PhiArray(:,:,i)*theta_c.theta;
-%         MCMC(i).Xi_start = out(i).samples(:, end);
+        % MCMC(i).Xi_start = out(i).samples(:, end);
     end
     
-    sigmaSq = 0;
-    for i = 1:fineData.nSamples
-        sigmaSq = sigmaSq + XNormSqMean(i) - 2*theta_c.theta'*PhiArray(:,:,i)'*XMean(:,i)...
-            + theta_c.theta'*PhiArray(:,:,i)'*PhiArray(:,:,i)*theta_c.theta;
-    end
-    sigmaSq = sigmaSq/(nCoarse*fineData.nSamples);
-    sigmaOffset = 1e-8;
-    theta_c.sigma = (1 - mix_sigma)*sqrt(sigmaSq) + mix_sigma*theta_c.sigma + sigmaOffset;
+    
     
     S = diag(theta_cf.S)'
     %% collect data in data arrays
@@ -124,6 +155,12 @@ clear i j k m Wa Wa_mean Tc_dyadic_mean log_qi out p_cf_exponent curr_theta XMea
 
 
 runtime = toc
+
+
+
+
+
+
 
 
 

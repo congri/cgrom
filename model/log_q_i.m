@@ -1,11 +1,16 @@
 function [log_q, d_log_q, Tc] = log_q_i(Xi, Tf_i, theta_cf, theta_c, Phi, Fmesh, Cmesh, heatSource, boundary, W)
 
 Cmesh.conductivity = exp(Xi);
-if any(Cmesh.conductivity < 1e-8)
-    warning('very small conductivity')
-    Cmesh.conductivity
-    pause
-    assert(~any(Cmesh.conductivity < 1e-15), 'Error: numerically 0 conductivity')
+if any(Cmesh.conductivity < 1e-6)
+%     warning('very small conductivity')
+%     Cmesh.conductivity
+%     pause
+    Cmesh.conductivity(Cmesh.conductivity < 1e-6) = 1e-6;
+%     assert(~any(Cmesh.conductivity < 1e-8), 'Error: numerically 0 conductivity')
+end
+if any(Cmesh.conductivity > 1e6)
+    Cmesh.conductivity(Cmesh.conductivity > 1e6) = 1e6;
+%     warning('Very large conductivity')
 end
 
 [lg_p_c, d_lg_p_c] = log_p_c(Xi, Phi, theta_c.theta, theta_c.sigma);
@@ -14,6 +19,16 @@ end
 log_q = lg_p_cf + lg_p_c;
 
 d_log_q = d_lg_p_c + d_lg_p_cf;
+if any(imag(d_log_q))
+    Xi
+    theta_c.theta
+    theta_c.sigma
+    Phi
+    d_log_q
+    d_lg_p_c
+    d_lg_p_cf
+    error('Imaginary gradient')
+end
 
 
 %Finite difference gradient check
