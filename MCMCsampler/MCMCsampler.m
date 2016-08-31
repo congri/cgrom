@@ -94,6 +94,19 @@ for i = 1:(opts.nThermalization - 1)
     end
 
     r = rand;
+%     Metropolis
+%     invProposalCov
+%     invProposalExponent
+%     x
+%     inverseProposalMean
+%     d_log_pProp
+%     proposalExponent
+%     xProp
+%     proposalMean
+%     d_log_p
+%     log_pProp
+%     log_p
+%     pause
     if(r < Metropolis)
         %Metropolis acceptance. Go to xProp
 
@@ -207,7 +220,7 @@ for i = 1:(opts.nSamples*(opts.nGap + 1))
 end
 
 out.acceptance = accepted/(opts.nSamples*(opts.nGap + 1));
-if out.acceptance < .2
+if out.acceptance < .1
     warning('Acceptance ratio is')
     acc = out.acceptance
     x

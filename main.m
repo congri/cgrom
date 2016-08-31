@@ -41,17 +41,49 @@ log_qi = cell(fineData.nSamples, 1);
 k = 1;
 collectData;
 for k = 2:(EM.maxIterations + 1)
-    %Generate samples from every q_i
+    %% Test run for step sizes
+    disp('test sampling...')
+    parfor i = 1:fineData.nSamples
+        log_qi{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c,...
+            PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, theta_cf.W);
+        %find maximum of qi for thermalization
+        X_start{i} = MCMC(i).Xi_start;
+        Xmax{i} = max_qi(log_qi{i}, X_start{i});
+        
+        %sample from every q_i
+        outStepWidth(i) = MCMCsampler(log_qi{i}, Xmax{i}, MCMCstepWidth(i));
+        while (outStepWidth(i).acceptance < .5 || outStepWidth(i).acceptance > .9)
+            outStepWidth(i) = MCMCsampler(log_qi{i}, Xmax{i}, MCMCstepWidth(i));
+            MCMCstepWidth(i).Xi_start = outStepWidth(i).samples(:, end);
+            if strcmp(MCMCstepWidth(i).method, 'MALA')
+                MCMCstepWidth(i).MALA.stepWidth = (1/.7)*(outStepWidth(i).acceptance + (1 - outStepWidth(i).acceptance)*.1)*...
+                    MCMCstepWidth(i).MALA.stepWidth;
+            elseif strcmp(MCMCstepWidth(i).method, 'randomWalk')
+                MCMCstepWidth(i).randomWalk.proposalCov = (1/.7)*(outStepWidth(i).acceptance + (1 - outStepWidth(i).acceptance)*.1)*MCMCstepWidth(i).randomWalk.proposalCov;
+            else
+                error('Unknown MCMC method')
+            end
+        end
+        %Set step widths and start values
+        if strcmp(MCMCstepWidth(i).method, 'MALA')
+            MCMC(i).MALA.stepWidth = MCMCstepWidth(i).MALA.stepWidth;
+        elseif strcmp(MCMCstepWidth(i).method, 'randomWalk')
+            MCMC(i).randomWalk.proposalCov = MCMCstepWidth(i).randomWalk.proposalCov;
+        else
+            error('Unknown MCMC method')
+        end
+        MCMC(i).Xi_start = MCMCstepWidth(i).Xi_start;
+    end
+    
+    disp('actual sampling...')
+    %% Generate samples from every q_i
     parfor i = 1:fineData.nSamples
         log_qi{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c, PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, theta_cf.W);
         %sample from every q_i
-        out(i) = MCMCsampler(log_qi{i}, MCMC(i).Xi_start, MCMC(i));
-        if any(any(imag(out(i).samples)))
-           error('Imaginary samples') 
-        end
+        out(i) = MCMCsampler(log_qi{i}, Xmax{i}, MCMC(i));
         %avoid very low acceptances
         while out(i).acceptance < .1
-            out(i) = MCMCsampler(log_qi{i}, MCMC(i).Xi_start, MCMC(i));
+            out(i) = MCMCsampler(log_qi{i}, Xmax{i}, MCMC(i));
             %if there is a second loop iteration, take last sample as initial position
             MCMC(i).Xi_start = 0*out(i).samples(:,end);
             if strcmp(MCMC(i).method, 'MALA')
@@ -64,12 +96,10 @@ for k = 2:(EM.maxIterations + 1)
             end
             warning('Acceptance ratio below .1')
         end
-        
-        %         log_qi_mean(i) = mean(out(i).log_p);
-        
+               
         %Refine step width
         if strcmp(MCMC(i).method, 'MALA')
-            MCMC(i).MALA.stepWidth = (1/.9)*out(i).acceptance*MCMC(i).MALA.stepWidth;
+            MCMC(i).MALA.stepWidth = (1/.7)*out(i).acceptance*MCMC(i).MALA.stepWidth;
         elseif strcmp(MCMC(i).method, 'randomWalk')
             MCMC(i).randomWalk.proposalCov = (1/.7)*out(i).acceptance*MCMC(i).randomWalk.proposalCov;
         else
@@ -151,7 +181,7 @@ for k = 2:(EM.maxIterations + 1)
     %% collect data in data arrays
     collectData;
 end
-clear i j k m Wa Wa_mean Tc_dyadic_mean log_qi out p_cf_exponent curr_theta XMean XNormSqMean;
+clear i j k m Wa Wa_mean Tc_dyadic_mean log_qi p_cf_exponent curr_theta XMean XNormSqMean;
 
 
 runtime = toc

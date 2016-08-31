@@ -15,7 +15,7 @@ if strcmp(mode, 'gaussian')
 elseif strcmp(mode, 'laplace')
     %Laplacian prior
     %hyperparameter
-    alpha = 1e-2;
+    alpha = 100;
     log_p = dim*log(alpha) - dim*log(2) - alpha*sum(abs(theta_c));
     d_log_p = - alpha*sign(theta_c);
     

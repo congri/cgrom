@@ -103,17 +103,25 @@ theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
 theta_c.sigma = 1;
 
 %% MCMC options
-MCMC.method = 'randomWalk';                             %proposal type: randomWalk, nonlocal or MALA
-MCMC.seed = 12;
-MCMC.nThermalization = 200;                              %thermalization steps
-MCMC.nSamples = 50;                                    %number of samples
-MCMC.nGap = 50;
-MCMC.Xi_start = zeros(nCoarse, 1);
+MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
+MCMC.seed = 13;
+MCMC.nThermalization = 500;                              %thermalization steps
+MCMC.nSamples = 100;                                    %number of samples
+MCMC.nGap = 100;
+MCMC.Xi_start = mvnrnd(zeros(nCoarse, 1), theta_c.sigma);
 %only for random walk
-MCMC.MALA.stepWidth = 1.5e-2;
+MCMC.MALA.stepWidth = 4e-3;
 stepWidth = 1e-3;
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
 MCMC = repmat(MCMC, fineData.nSamples, 1);
+
+%% MCMC options to find step width
+MCMCstepWidth = MCMC;
+for i = 1:fineData.nSamples
+    MCMCstepWidth(i).nSamples = 2;
+    MCMCstepWidth(i).nGap = 200;
+end
+
 
 %prealloc of MCMC out structure
 out.samples = zeros(nCoarse, MCMC(1).nSamples);
@@ -126,13 +134,13 @@ out = repmat(out, fineData.nSamples, 1);
 %% EM options
 %Control convergence velocity - take weighted mean of adjacent parameter estimates
 mix_sigma = 0.5;
-mix_S = 0.5;
+mix_S = 0;
 mix_W = 0;
 mix_theta = 0;
 
 %% Object containing EM optimization optimization
 EM = EMstats;
-EM = EM.setMaxIterations(50);
+EM = EM.setMaxIterations(30);
 EM = EM.prealloc(fineData, nFine, nCoarse, nBasis);           %preallocation of data arrays
 
 
