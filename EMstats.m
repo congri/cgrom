@@ -51,6 +51,8 @@ classdef EMstats
         end
         
         function plotData(obj)
+            %further plotting functions
+            addpath(genpath('~/matlab/toolboxes/plotting'))
             %plot the final data
             f = figure;
             set(f, 'Position', [680 678 900 700]) %[position x, psition y, width, height]
@@ -59,6 +61,11 @@ classdef EMstats
             p_theta = plot(iterations, obj.theta);
             set(gca, 'fontsize', 15)
             set(p_theta, 'linewidth', 2)
+            %compute perceptually distinct colors
+            c_theta = distinguishable_colors(size(obj.theta, 1));
+            for i = 1:numel(p_theta)
+                set(p_theta(i), 'color', c_theta(i, :))
+            end
             xlabel('iteration i')
             ylabel('\theta_c')
             xlim([1 obj.maxIterations + 1])
@@ -70,6 +77,8 @@ classdef EMstats
             p_sigma = plot(iterations, obj.sigma);
             set(gca, 'fontsize', 15)
             set(p_sigma, 'linewidth', 2)
+            c_sigma = distinguishable_colors(1);
+            set(p_sigma, 'color', c_sigma)
             axis square
             grid on
             xlabel('iteration i')

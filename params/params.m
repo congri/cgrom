@@ -93,24 +93,31 @@ phi_6 = @(x) log(mean(x.^3));
 phi_7 = @(x) log(mean(x.^4));
 phi_8 = @(x) log(mean(x.^5));
 phi_9 = @(x) log(secOrderFeature(x));   %sum_i x_i*x_{i + 1}
-phi = {phi_1; phi_2; phi_3; phi_4; phi_5; phi_6; phi_7};
+phi_10 = @(x) x(1);
+phi_11 = @(x) x(2);
+phi_12 = @(x) x(3);
+phi_13 = @(x) x(4);
+
+phi = {phi_1; phi_2; phi_3; phi_4; phi_9; phi_10; phi_11; phi_12};
 nBasis = numel(phi);
 
 %% start values
 theta_cf.S = 1*eye(nFine + 1);
 theta_cf.mu = zeros(nFine + 1, 1);
 theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
-theta_c.sigma = 1;
+theta_c.sigma = .2;
 
 %% MCMC options
 MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
 MCMC.seed = 13;
-MCMC.nThermalization = 500;                              %thermalization steps
-MCMC.nSamples = 100;                                    %number of samples
-MCMC.nGap = 100;
+%thermalization steps; we perform a deterministic optimization of qi before each sampling, hence
+%there is no thermalization needed
+MCMC.nThermalization = 0;
+MCMC.nSamples = 500;                                    %number of samples
+MCMC.nGap = 200;
 MCMC.Xi_start = mvnrnd(zeros(nCoarse, 1), theta_c.sigma);
 %only for random walk
-MCMC.MALA.stepWidth = 4e-3;
+MCMC.MALA.stepWidth = 1e-4;
 stepWidth = 1e-3;
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
 MCMC = repmat(MCMC, fineData.nSamples, 1);
@@ -119,7 +126,7 @@ MCMC = repmat(MCMC, fineData.nSamples, 1);
 MCMCstepWidth = MCMC;
 for i = 1:fineData.nSamples
     MCMCstepWidth(i).nSamples = 2;
-    MCMCstepWidth(i).nGap = 200;
+    MCMCstepWidth(i).nGap = 300;
 end
 
 
@@ -133,14 +140,14 @@ out = repmat(out, fineData.nSamples, 1);
 
 %% EM options
 %Control convergence velocity - take weighted mean of adjacent parameter estimates
-mix_sigma = 0.5;
+mix_sigma = 0;
 mix_S = 0;
 mix_W = 0;
 mix_theta = 0;
 
 %% Object containing EM optimization optimization
 EM = EMstats;
-EM = EM.setMaxIterations(30);
+EM = EM.setMaxIterations(500);
 EM = EM.prealloc(fineData, nFine, nCoarse, nBasis);           %preallocation of data arrays
 
 

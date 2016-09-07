@@ -47,7 +47,8 @@ for k = 2:(EM.maxIterations + 1)
         log_qi{i} = @(Xi) log_q_i(Xi, Tf(:,i), theta_cf, theta_c,...
             PhiArray(:,:,i), Fmesh, Cmesh, heatSource, boundary, theta_cf.W);
         %find maximum of qi for thermalization
-        X_start{i} = MCMC(i).Xi_start;
+        %start value has some randomness to drive transitions between local optima
+        X_start{i} = normrnd(MCMC(i).Xi_start, .01);
         Xmax{i} = max_qi(log_qi{i}, X_start{i});
         
         %sample from every q_i
@@ -85,7 +86,7 @@ for k = 2:(EM.maxIterations + 1)
         while out(i).acceptance < .1
             out(i) = MCMCsampler(log_qi{i}, Xmax{i}, MCMC(i));
             %if there is a second loop iteration, take last sample as initial position
-            MCMC(i).Xi_start = 0*out(i).samples(:,end);
+            MCMC(i).Xi_start = out(i).samples(:,end);
             if strcmp(MCMC(i).method, 'MALA')
                 MCMC(i).MALA.stepWidth = (1/.9)*(out(i).acceptance + (1 - out(i).acceptance)*.1)*MCMC(i).MALA.stepWidth;
             elseif strcmp(MCMC(i).method, 'randomWalk')
@@ -149,16 +150,19 @@ for k = 2:(EM.maxIterations + 1)
     fsolve_options.MaxFunEvals = 3000*(numel(theta_c.theta) + 1);
     fsolve_options.MaxIter = 10000;
     fsolve_options.Algorithm = 'trust-region-reflective';
+    fsolve_options.Display = 'off';
 %     [sigmaSqTheta_cOpt, fval] = fsolve(dF_dTheta, [0; (1/size(theta_c.theta, 1))*ones(size(theta_c.theta, 1), 1)]...
 %         + 2*rand(size(theta_c.theta, 1) + 1, 1) - 1, fsolve_options)
     
     
-    EqSys = @(theta) thetacOpt(theta, fineData.nSamples, nCoarse, sum(XNormSqMean),...
+    EqSys = @(theta) thetacOpt(theta, theta_c.theta, fineData.nSamples, nCoarse, sum(XNormSqMean),...
     sumPhiTXmean, sumPhiSq);
     [theta_c.theta, fval] = fsolve(EqSys, theta_c.theta, fsolve_options)
+    %rounding for proper sparsity
+%     theta_c.theta(abs(theta_c.theta) < 1e-8) = 0;
     sigmaOffset = 1e-4;
-    theta_c.sigma = sigmaOpt(theta_c.theta, fineData.nSamples, nCoarse, sum(XNormSqMean),...
-    sumPhiTXmean, sumPhiSq) + sigmaOffset;
+    theta_c.sigma = (1 - mix_sigma)*(sigmaOpt(theta_c.theta, fineData.nSamples, nCoarse, sum(XNormSqMean),...
+    sumPhiTXmean, sumPhiSq) + sigmaOffset) + mix_sigma*theta_c.sigma;
     
     
 %     theta_c.sigma = (1 - mix_sigma)*exp(.5*sigmaSqTheta_cOpt(1)) + mix_sigma*theta_c.sigma + sigmaOffset;
