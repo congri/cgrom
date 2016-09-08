@@ -139,37 +139,12 @@ for k = 2:(EM.maxIterations + 1)
     for i = 1:fineData.nSamples
         sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
     end
+
+    disp('Solving equation system...')
+    [theta_c] = optTheta_c(theta_c, fineData, nCoarse, XNormSqMean,...
+        sumPhiTXmean, sumPhiSq, sumPhiSqInv, mix_sigma, prior_type, prior_hyperparam);
+    disp('Equation system solved, current theta:')
     
-    %first element in sigmaSqTheta_c is sigma, the rest is theta_c
-%     dF_dTheta = @(sigmaSqTheta_c) dF_dtheta(sigmaSqTheta_c, fineData.nSamples, nCoarse, sum(XNormSqMean),...
-%         sumPhiTXmean, sumPhiSq);
-    %solve equation system of zero gradient with fsolve; use last set of parameters as
-    %initialization
-    %using fsolve
-    fsolve_options = optimoptions('fsolve');
-    fsolve_options.MaxFunEvals = 3000*(numel(theta_c.theta) + 1);
-    fsolve_options.MaxIter = 10000;
-    fsolve_options.Algorithm = 'trust-region-reflective';
-    fsolve_options.Display = 'off';
-%     [sigmaSqTheta_cOpt, fval] = fsolve(dF_dTheta, [0; (1/size(theta_c.theta, 1))*ones(size(theta_c.theta, 1), 1)]...
-%         + 2*rand(size(theta_c.theta, 1) + 1, 1) - 1, fsolve_options)
-    
-    
-    EqSys = @(theta) thetacOpt(theta, theta_c.theta, fineData.nSamples, nCoarse, sum(XNormSqMean),...
-    sumPhiTXmean, sumPhiSq);
-    [theta_c.theta, fval] = fsolve(EqSys, theta_c.theta, fsolve_options)
-    %rounding for proper sparsity
-%     theta_c.theta(abs(theta_c.theta) < 1e-8) = 0;
-    sigmaOffset = 1e-4;
-    theta_c.sigma = (1 - mix_sigma)*(sigmaOpt(theta_c.theta, fineData.nSamples, nCoarse, sum(XNormSqMean),...
-    sumPhiTXmean, sumPhiSq) + sigmaOffset) + mix_sigma*theta_c.sigma;
-    
-    
-%     theta_c.sigma = (1 - mix_sigma)*exp(.5*sigmaSqTheta_cOpt(1)) + mix_sigma*theta_c.sigma + sigmaOffset;
-%     theta_c.theta = (1 - mix_theta)*sigmaSqTheta_cOpt(2:end) + mix_theta*theta_c.theta;
-    %set components of theta to zero that almost vanish
-%     theta_c_threshold = 1e-9;
-%     theta_c.theta(abs(theta_c.theta)/max(abs(theta_c.theta)) < theta_c_threshold) = 0;
     curr_theta = theta_c.theta
     curr_sigma = theta_c.sigma
     

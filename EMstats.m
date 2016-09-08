@@ -69,12 +69,15 @@ classdef EMstats
             xlabel('iteration i')
             ylabel('\theta_c')
             xlim([1 obj.maxIterations + 1])
-            ylim([-3 3])
             axis square
             grid on
+            ax = gca;
+            ax.XMinorGrid = 'on';
+            ax.YMinorGrid = 'on';
+            
             
             subplot(2, 2, 2)
-            p_sigma = plot(iterations, obj.sigma);
+            p_sigma = semilogy(iterations, obj.sigma);
             set(gca, 'fontsize', 15)
             set(p_sigma, 'linewidth', 2)
             c_sigma = distinguishable_colors(1);
@@ -84,6 +87,10 @@ classdef EMstats
             xlabel('iteration i')
             ylabel('\sigma')
             xlim([1 obj.maxIterations + 1])
+            ax = gca;
+            ax.YMinorTick = 'on';
+            ax.XMinorGrid = 'on';
+            ax.YMinorGrid = 'on';
             
             
             subplot(2, 2, 3)
@@ -99,9 +106,11 @@ classdef EMstats
             xlabel('iteration i')
             ylabel('S')
             xlim([1 obj.maxIterations + 1])
+            ax = gca;
+            ax.XMinorGrid = 'on';
+            ax.YMinorGrid = 'on';
             
             subplot(2, 2, 4)
-            
             p_sw = semilogy(iterations, obj.MCMCStepWidth, 'k');
             set(gca, 'fontsize', 15)
             set(p_sw, 'linewidth', 1)
@@ -110,6 +119,9 @@ classdef EMstats
             xlabel('iteration i')
             ylabel('step width')
             xlim([1 obj.maxIterations + 1])
+            ax = gca;
+            ax.XMinorGrid = 'on';
+            ax.YMinorGrid = 'on';
             
         end
         

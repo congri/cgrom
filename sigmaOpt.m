@@ -1,4 +1,4 @@
-function [sigmaOpt] = sigmaOpt(thetaOpt, nData, nCoarse, sum_XNormSqMean,...
+function [sgOpt] = sigmaOpt(thetaOpt, nData, nCoarse, sum_XNormSqMean,...
     sumPhiTXmean, sumPhiSq)
 %Compute optimal sigma given optimal theta
 
@@ -7,7 +7,7 @@ sigmaSq = (1/(nData*nCoarse))*(sum_XNormSqMean - 2*thetaOpt'*sumPhiTXmean + thet
 if sigmaSq < 0
     sigmaSq = 0;
 end
-sigmaOpt = sqrt(sigmaSq);
+sgOpt = sqrt(sigmaSq);
 
 
 end

@@ -9,7 +9,7 @@ boundary.q0 = [1; 400];
 
 %% Finescale conductivity params
 fineData.genData = true;
-fineData.dist = 'uniform';  %uniform, gaussian or binary (dist of log conductivity)
+fineData.dist = 'binary';  %uniform, gaussian or binary (dist of log conductivity)
 fineData.nSamples = 16;
 if strcmp(fineData.dist, 'gaussian')
     fineData.mu = 1.2;    %mean of log of lambda
@@ -17,7 +17,7 @@ if strcmp(fineData.dist, 'gaussian')
 elseif (strcmp(fineData.dist, 'uniform') || strcmp(fineData.dist, 'binary'))
     %for uniform & binary
     fineData.lo = 2;
-    fineData.up = 20;
+    fineData.up = 2.5;
     contrast = fineData.up/fineData.lo;
     %for binary
     if strcmp(fineData.dist, 'binary')
@@ -36,49 +36,49 @@ assert(~mod(nFine, nCoarse), 'Error: Coarse mesh is not a divisor of fine mesh!'
 FperC = nFine/nCoarse;
 Winterp = true;
 if Winterp
-theta_cf.W = zeros(nFine + 1, nCoarse + 1);
-%first few lines
-for i = 1:(FperC)
-    theta_cf.W(i, 1) = (FperC - i + 1)/FperC;
-    theta_cf.W(i, 2) = (i - 1)/FperC;
-end
-j = 2;
-for i = 1:(nCoarse - 1)
-    theta_cf.W((i*FperC + 1):((i + 1)*FperC), j:(j + 1)) = theta_cf.W(1:FperC, 1:2);
-    j = j + 1;
-end
-theta_cf.W(end) = 1;
+    theta_cf.W = zeros(nFine + 1, nCoarse + 1);
+    %first few lines
+    for i = 1:(FperC)
+        theta_cf.W(i, 1) = (FperC - i + 1)/FperC;
+        theta_cf.W(i, 2) = (i - 1)/FperC;
+    end
+    j = 2;
+    for i = 1:(nCoarse - 1)
+        theta_cf.W((i*FperC + 1):((i + 1)*FperC), j:(j + 1)) = theta_cf.W(1:FperC, 1:2);
+        j = j + 1;
+    end
+    theta_cf.W(end) = 1;
 else
-%W for linear combination of coarse nodes for fine nodes in respective element
-%indices for ones in matching nodes
-Windices(:, 1) = (1:FperC:(nFine + 1))';
-Windices(:, 2) = (1:(nCoarse + 1))';
-
-%params indices
-tempRow = 2;
-tempCol = 1;
-for i = 1:2*(nFine - nCoarse)
-    paramIndices(i, 1) = tempRow;
-    paramIndices(i, 2) = tempCol;
-    if mod(i, 2)
-        tempCol = tempCol + 1;
-    else
-        tempRow = tempRow + 1;
-        tempCol = tempCol - 1;
+    %W for linear combination of coarse nodes for fine nodes in respective element
+    %indices for ones in matching nodes
+    Windices(:, 1) = (1:FperC:(nFine + 1))';
+    Windices(:, 2) = (1:(nCoarse + 1))';
+    
+    %params indices
+    tempRow = 2;
+    tempCol = 1;
+    for i = 1:2*(nFine - nCoarse)
+        paramIndices(i, 1) = tempRow;
+        paramIndices(i, 2) = tempCol;
+        if mod(i, 2)
+            tempCol = tempCol + 1;
+        else
+            tempRow = tempRow + 1;
+            tempCol = tempCol - 1;
+        end
+        if mod(tempRow - 1, FperC) == 0
+            tempRow = tempRow + 1;
+            tempCol = tempCol + 1;
+        end
     end
-    if mod(tempRow - 1, FperC) == 0
-       tempRow = tempRow + 1;
-       tempCol = tempCol + 1;
-    end
-end
-Windices = [Windices; paramIndices];
-[I, J] = meshgrid(1:(nFine + 1), 1:(nCoarse + 1));
-allIndices = [I(:) J(:)];
-constIndices = setdiff(allIndices, paramIndices, 'rows');
-clear tempRow tempCol I J allIndices;
-w = rand(2*(nFine - nCoarse), 1);
-%take random W as initial value
-theta_cf.W = (Wmatrix(nFine, nCoarse, Windices, w) + 1) - 1;
+    Windices = [Windices; paramIndices];
+    [I, J] = meshgrid(1:(nFine + 1), 1:(nCoarse + 1));
+    allIndices = [I(:) J(:)];
+    constIndices = setdiff(allIndices, paramIndices, 'rows');
+    clear tempRow tempCol I J allIndices;
+    w = rand(2*(nFine - nCoarse), 1);
+    %take random W as initial value
+    theta_cf.W = (Wmatrix(nFine, nCoarse, Windices, w) + 1) - 1;
 end
 % theta_cf.W = rand(nFine + 1, nCoarse + 1);
 
@@ -93,19 +93,26 @@ phi_6 = @(x) log(mean(x.^3));
 phi_7 = @(x) log(mean(x.^4));
 phi_8 = @(x) log(mean(x.^5));
 phi_9 = @(x) log(secOrderFeature(x));   %sum_i x_i*x_{i + 1}
-phi_10 = @(x) x(1);
-phi_11 = @(x) x(2);
-phi_12 = @(x) x(3);
-phi_13 = @(x) x(4);
+phi_10 = @(x) log(x(1));
+phi_11 = @(x) log(x(2));
+phi_12 = @(x) log(x(3));
+phi_13 = @(x) log(x(4));
 
-phi = {phi_1; phi_2; phi_3; phi_4; phi_9; phi_10; phi_11; phi_12};
+phi = {phi_1; phi_2; phi_3; phi_4; phi_5; phi_9; phi_10; phi_11};
 nBasis = numel(phi);
 
 %% start values
 theta_cf.S = 1*eye(nFine + 1);
 theta_cf.mu = zeros(nFine + 1, 1);
 theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
-theta_c.sigma = .2;
+theta_c.sigma = 1;
+%what kind of prior for theta_c
+prior_type = 'hierarchical';    %hierarchical, laplace, gaussian or none
+%prior hyperparams; obsolete for no prior and hierarchical prior
+% prior_hyperparam = 100*eye(size(phi, 1));     %variance of prior gaussian
+prior_hyperparam = .1;                       %Exponential decay parameter for laplace
+
+
 
 %% MCMC options
 MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
@@ -113,11 +120,11 @@ MCMC.seed = 13;
 %thermalization steps; we perform a deterministic optimization of qi before each sampling, hence
 %there is no thermalization needed
 MCMC.nThermalization = 0;
-MCMC.nSamples = 500;                                    %number of samples
-MCMC.nGap = 200;
+MCMC.nSamples = 50;                                    %number of samples
+MCMC.nGap = 100;
 MCMC.Xi_start = mvnrnd(zeros(nCoarse, 1), theta_c.sigma);
 %only for random walk
-MCMC.MALA.stepWidth = 1e-4;
+MCMC.MALA.stepWidth = 3e-5;
 stepWidth = 1e-3;
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
 MCMC = repmat(MCMC, fineData.nSamples, 1);
@@ -147,7 +154,7 @@ mix_theta = 0;
 
 %% Object containing EM optimization optimization
 EM = EMstats;
-EM = EM.setMaxIterations(500);
+EM = EM.setMaxIterations(30);
 EM = EM.prealloc(fineData, nFine, nCoarse, nBasis);           %preallocation of data arrays
 
 
