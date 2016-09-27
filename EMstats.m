@@ -71,9 +71,9 @@ classdef EMstats
             xlim([1 obj.maxIterations + 1])
             axis square
             grid on
-            ax = gca;
-            ax.XMinorGrid = 'on';
-            ax.YMinorGrid = 'on';
+%             ax = gca;
+%             ax.XMinorGrid = 'on';
+%             ax.YMinorGrid = 'on';
             
             
             subplot(2, 2, 2)

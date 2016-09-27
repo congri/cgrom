@@ -24,6 +24,7 @@ if fineData.genData
     sumPhiSq = inv(sumPhiSqInv);
 else
     load('./data/fineData/fineData')
+    sumPhiSq = inv(sumPhiSqInv);
 end
 for i = 1:fineData.nSamples
     %take MCMC initializations at mode of p_c
@@ -144,6 +145,9 @@ for k = 2:(EM.maxIterations + 1)
     [theta_c] = optTheta_c(theta_c, fineData, nCoarse, XNormSqMean,...
         sumPhiTXmean, sumPhiSq, sumPhiSqInv, mix_sigma, prior_type, prior_hyperparam);
     disp('Equation system solved, current theta:')
+    
+    
+%     [zOpt] = optNewPhi(XMean, x, theta_c.theta, PhiArray, nFine, nCoarse)
     
     curr_theta = theta_c.theta
     curr_sigma = theta_c.sigma

@@ -17,7 +17,7 @@ if strcmp(fineData.dist, 'gaussian')
 elseif (strcmp(fineData.dist, 'uniform') || strcmp(fineData.dist, 'binary'))
     %for uniform & binary
     fineData.lo = 2;
-    fineData.up = 2.5;
+    fineData.up = 10;
     contrast = fineData.up/fineData.lo;
     %for binary
     if strcmp(fineData.dist, 'binary')
@@ -97,20 +97,22 @@ phi_10 = @(x) log(x(1));
 phi_11 = @(x) log(x(2));
 phi_12 = @(x) log(x(3));
 phi_13 = @(x) log(x(4));
+phi_14 = @(x) log(x(1))*log(x(4));
+phi_15 = @(x) mean(log(x));             %geometric mean
 
-phi = {phi_1; phi_2; phi_3; phi_4; phi_5; phi_9; phi_10; phi_11};
+phi = {phi_15};
 nBasis = numel(phi);
 
 %% start values
 theta_cf.S = 1*eye(nFine + 1);
 theta_cf.mu = zeros(nFine + 1, 1);
 theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
-theta_c.sigma = 1;
+theta_c.sigma = .5;
 %what kind of prior for theta_c
 prior_type = 'hierarchical';    %hierarchical, laplace, gaussian or none
 %prior hyperparams; obsolete for no prior and hierarchical prior
 % prior_hyperparam = 100*eye(size(phi, 1));     %variance of prior gaussian
-prior_hyperparam = .1;                       %Exponential decay parameter for laplace
+prior_hyperparam = .0001;                       %Exponential decay parameter for laplace
 
 
 
