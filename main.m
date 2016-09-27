@@ -20,8 +20,20 @@ Cmesh = genMesh(boundary, nCoarse);
 
 %% Generate finescale dataset
 if fineData.genData
-    [x, Tf, PhiArray, sumPhiSqInv] = genFineData(Fmesh, phi, heatSource, boundary, fineData, nFine, nCoarse);
-    sumPhiSq = inv(sumPhiSqInv);
+    [x, Tf] = genFineData(Fmesh, heatSource, boundary, fineData);
+    % Compute and store design matrix for each data point
+    PhiArray = zeros(nCoarse, size(phi, 1), size(x, 2));
+    for i = 1:size(x, 2)
+        PhiArray(:,:,i) = designMatrix(phi, exp(x(:, i)), nFine, nCoarse);
+    end
+    % Compute inverse of sum_i Phi^T(x_i)^Phi(x_i)
+    sumPhiSq = zeros(size(phi, 1), size(phi, 1));
+    for i = 1:fineData.nSamples
+        sumPhiSq = sumPhiSq + PhiArray(:,:,i)'*PhiArray(:,:,i);
+    end
+    sumPhiSqInv = inv(sumPhiSq);
+    % save data
+    save('./data/fineData/fineData', 'x', 'Tf', 'PhiArray', 'sumPhiSqInv');
 else
     load('./data/fineData/fineData')
     sumPhiSq = inv(sumPhiSqInv);
@@ -159,10 +171,40 @@ for k = 2:(EM.maxIterations + 1)
     end
     
     
-    
     S = diag(theta_cf.S)'
-    %% collect data in data arrays
+    % collect data in data arrays
     collectData;
+    
+    if(mod(k - 1, basisUpdateGap) == 0)
+        disp('Updating basis functions phi in p_c...')
+        if size(phi, 1) == 1
+            phi{2, 1} = phi_2;
+            theta_c.theta = [theta_c.theta; 0];
+            EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+        elseif size(phi, 1) == 2
+            phi{3, 1} = phi_1;
+            theta_c.theta = [theta_c.theta; 0];
+            EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+        elseif size(phi, 1) == 3
+            phi{4, 1} = phi_4;
+            theta_c.theta = [theta_c.theta; 0];
+            EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+        else
+            error('Which basis function to add?')
+        end
+        
+        % Compute and store design matrix for each data point
+        PhiArray = zeros(nCoarse, size(phi, 1), size(x, 2));
+        for i = 1:size(x, 2)
+            PhiArray(:,:,i) = designMatrix(phi, exp(x(:, i)), nFine, nCoarse);
+        end
+        % Compute inverse of sum_i Phi^T(x_i)^Phi(x_i)
+        sumPhiSq = zeros(size(phi, 1), size(phi, 1));
+        for i = 1:fineData.nSamples
+            sumPhiSq = sumPhiSq + PhiArray(:,:,i)'*PhiArray(:,:,i);
+        end
+        sumPhiSqInv = inv(sumPhiSq);
+    end
 end
 clear i j k m Wa Wa_mean Tc_dyadic_mean log_qi p_cf_exponent curr_theta XMean XNormSqMean;
 

@@ -8,7 +8,7 @@ boundary.T0 = [10; 1];
 boundary.q0 = [1; 400];
 
 %% Finescale conductivity params
-fineData.genData = true;
+fineData.genData = false;
 fineData.dist = 'binary';  %uniform, gaussian or binary (dist of log conductivity)
 fineData.nSamples = 16;
 if strcmp(fineData.dist, 'gaussian')
@@ -102,6 +102,7 @@ phi_15 = @(x) mean(log(x));             %geometric mean
 
 phi = {phi_15};
 nBasis = numel(phi);
+basisUpdateGap = 18;
 
 %% start values
 theta_cf.S = 1*eye(nFine + 1);
@@ -109,10 +110,10 @@ theta_cf.mu = zeros(nFine + 1, 1);
 theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
 theta_c.sigma = .5;
 %what kind of prior for theta_c
-prior_type = 'hierarchical';    %hierarchical, laplace, gaussian or none
+prior_type = 'laplace';    %hierarchical, laplace, gaussian or none
 %prior hyperparams; obsolete for no prior and hierarchical prior
 % prior_hyperparam = 100*eye(size(phi, 1));     %variance of prior gaussian
-prior_hyperparam = .0001;                       %Exponential decay parameter for laplace
+prior_hyperparam = .1;                       %Exponential decay parameter for laplace
 
 
 
@@ -156,7 +157,7 @@ mix_theta = 0;
 
 %% Object containing EM optimization optimization
 EM = EMstats;
-EM = EM.setMaxIterations(30);
+EM = EM.setMaxIterations(3*basisUpdateGap);
 EM = EM.prealloc(fineData, nFine, nCoarse, nBasis);           %preallocation of data arrays
 
 
