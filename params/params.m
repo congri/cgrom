@@ -8,7 +8,7 @@ boundary.T0 = [10; 1];
 boundary.q0 = [1; 400];
 
 %% Finescale conductivity params
-fineData.genData = false;
+fineData.genData = true;
 fineData.dist = 'binary';  %uniform, gaussian or binary (dist of log conductivity)
 fineData.nSamples = 16;
 if strcmp(fineData.dist, 'gaussian')
@@ -17,7 +17,7 @@ if strcmp(fineData.dist, 'gaussian')
 elseif (strcmp(fineData.dist, 'uniform') || strcmp(fineData.dist, 'binary'))
     %for uniform & binary
     fineData.lo = 2;
-    fineData.up = 10;
+    fineData.up = 20;
     contrast = fineData.up/fineData.lo;
     %for binary
     if strcmp(fineData.dist, 'binary')
@@ -83,7 +83,8 @@ end
 % theta_cf.W = rand(nFine + 1, nCoarse + 1);
 
 %% Basis functions for p_c
-%keep in mind that x is the log conductivity, x = log(lambda)
+%keep in mind that x is the log conductivity, x = log(lambda); however, in the notation below,
+%x == lambda, i.e. the conductivity
 phi_1 = @(x) log(size(x, 1)/sum(1./x));
 phi_2 = @(x) log(mean(x));
 phi_3 = @(x) log(max(x));
@@ -100,26 +101,29 @@ phi_13 = @(x) log(x(4));
 phi_14 = @(x) log(x(1))*log(x(4));
 phi_15 = @(x) mean(log(x));             %geometric mean
 
-phi = {phi_15};
+phi = {phi_13};
 nBasis = numel(phi);
-basisUpdateGap = 18;
+basisUpdateGap = 20;
 
 %% start values
 theta_cf.S = 1*eye(nFine + 1);
 theta_cf.mu = zeros(nFine + 1, 1);
 theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
+% theta_c.theta = (1/size(phi, 1))*zeros(size(phi, 1), 1);
+% theta_c.theta(end) = 1;
+theta_c.theta = 2*rand(size(phi, 1), 1) - 1;
 theta_c.sigma = .5;
 %what kind of prior for theta_c
-prior_type = 'laplace';    %hierarchical, laplace, gaussian or none
+prior_type = 'hierarchical_jeffreys';    %hierarchical, laplace, gaussian or none
 %prior hyperparams; obsolete for no prior and hierarchical prior
 % prior_hyperparam = 100*eye(size(phi, 1));     %variance of prior gaussian
-prior_hyperparam = .1;                       %Exponential decay parameter for laplace
+prior_hyperparam = 1e-2;                       %Exponential decay parameter for laplace
 
 
 
 %% MCMC options
 MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
-MCMC.seed = 13;
+MCMC.seed = 6;
 %thermalization steps; we perform a deterministic optimization of qi before each sampling, hence
 %there is no thermalization needed
 MCMC.nThermalization = 0;
@@ -157,7 +161,7 @@ mix_theta = 0;
 
 %% Object containing EM optimization optimization
 EM = EMstats;
-EM = EM.setMaxIterations(3*basisUpdateGap);
+EM = EM.setMaxIterations(4*basisUpdateGap - 1);
 EM = EM.prealloc(fineData, nFine, nCoarse, nBasis);           %preallocation of data arrays
 
 

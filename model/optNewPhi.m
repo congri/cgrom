@@ -5,11 +5,32 @@ function [zOpt] = optNewPhi(Xmean, x, theta_c, PhiArray, nFine, nCoarse)
 new_phi = @(z) phi_tilde(z, x, nFine, nCoarse);
 objective = @(z) basisFunctionImpact(z, Xmean, new_phi, x, theta_c, PhiArray);
 
-z0 = rand(1, nFine/nCoarse);
-objective
-z0
-objective(z0)
-[zOpt, fval] = fminunc(objective, z0)
+%Constrained optimization for numerical stability
+fmin_options = optimoptions('fmincon');
+fmin_options.Algorithm = 'trust-region-reflective';
+fmin_options.MaxFunctionEvaluations = 3000;
+fmin_options.MaxIter = 10000;
+fmin_options.Display = 'off';
+fmin_options.FiniteDifferenceType = 'central';     %more accurate, but slower
+fmin_options.SpecifyObjectiveGradient = true;
+A = [];
+b = [];
+Aeq = [];
+beq = [];
+nonlcon = [];
+lb = -30;
+ub = 30;
+z0a = -2;
+z0b = 2;
+
+[zOpta, fa] = fmincon(objective, z0a, A, b, Aeq, beq, lb, ub, nonlcon, fmin_options)
+[zOptb, fb] = fmincon(objective, z0b, A, b, Aeq, beq, lb, ub, nonlcon, fmin_options)
+if fa < fb
+    zOpt = zOpta;
+else
+    zOpt = zOptb;
+end
+
 
 end
 

@@ -8,13 +8,13 @@ function [F, d_F] = thetacOpt_Eq(theta_c, theta_c_old, nData, nCoarse, sum_XNorm
 %Equation system
 %from sigma derivative
 d_sigma = (2/(nData*nCoarse))*(sum_XNormSqMean - 2*theta_c'*sumPhiTXmean + theta_c'*sumPhiSq*theta_c);
-F = sumPhiTXmean - sumPhiSq*theta_c + d_sigma*dprior_dthetac;
+F = (1/nData)*sumPhiTXmean - (1/nData)*sumPhiSq*theta_c + d_sigma*dprior_dthetac;
 
 %compute the Jacobian
 if nargout > 1
     d_F = - sumPhiSq;
     d_F = d_F + (2/(nData*nCoarse))*((-2*sumPhiTXmean + 2*sumPhiSq*theta_c)*dprior_dthetac');
-    d_F = d_F + d_sigma*d2prior_d2thetac;   
+    d_F = d_F + d_sigma*d2prior_d2thetac;
 end
 
 end

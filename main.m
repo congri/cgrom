@@ -52,6 +52,7 @@ log_qi = cell(fineData.nSamples, 1);
 
 %collect data in data arrays
 k = 1;
+zOptVec = [];
 collectData;
 for k = 2:(EM.maxIterations + 1)
     %% Test run for step sizes
@@ -177,6 +178,19 @@ for k = 2:(EM.maxIterations + 1)
     
     if(mod(k - 1, basisUpdateGap) == 0)
         disp('Updating basis functions phi in p_c...')
+
+%         zOpt = optNewPhi(XMean, x, theta_c.theta, PhiArray, nFine, nCoarse);
+%         zOptVec = [zOptVec zOpt]
+%         if zOpt >= 30
+%             phi{end + 1, 1} = @(x) log(max(x));
+%         elseif zOpt <= -30
+%             phi{end + 1, 1} = @(x) log(min(x));
+%         else
+%             phi{end + 1, 1} = @(x) (1/zOpt)*log((1/FperC)*sum(x.^zOpt));
+%         end
+%         theta_c.theta(end + 1, 1) = 0;
+%         EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+        
         if size(phi, 1) == 1
             phi{2, 1} = phi_2;
             theta_c.theta = [theta_c.theta; 0];

@@ -16,6 +16,12 @@ end
 [lg_p_c, d_lg_p_c] = log_p_c(Xi, Phi, theta_c.theta, theta_c.sigma);
 [lg_p_cf, d_lg_p_cf, Tc] = log_p_cf(Tf_i, Cmesh, heatSource, boundary, W, theta_cf.S);
 
+if(~isscalar(lg_p_c))
+    lg_p_c
+end
+assert(isscalar(lg_p_c), 'error: lg_p_c not scalar')
+assert(isscalar(lg_p_cf), 'error: lg_p_cf not scalar')
+
 log_q = lg_p_cf + lg_p_c;
 
 d_log_q = d_lg_p_c + d_lg_p_cf;

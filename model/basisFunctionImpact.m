@@ -1,4 +1,4 @@
-function [U, d_U] = basisFunctionImpact(z, Xmean, new_phi, x, theta_c, PhiArray)
+function [Usq_neg, d_Usq_neg] = basisFunctionImpact(z, Xmean, new_phi, x, theta_c, PhiArray)
 %% Objective function to maximize to dynamically add basis functions phi in p_c
 % Input:
 %   z:              params of new basis function
@@ -20,14 +20,16 @@ nData = size(x, 2);
 U = 0;
 d_U = 0*z;
 
+new_phi_mat = new_phi(z);
+d_new_phi_mat = d_new_phi(z);
 for i = 1:nData
-    U = U + (Xmean(:, i)' - theta_c'*PhiArray(:, :, i)')*new_phi(z);
-    d_U = d_U + (Xmean(:, i)' - theta_c'*PhiArray(:, :, i)')*d_new_phi(x(:, i), z);
+    U = U + (Xmean(:, i)' - theta_c'*PhiArray(:, :, i)')*new_phi_mat(:, i);
+    d_U = d_U + (Xmean(:, i)' - theta_c'*PhiArray(:, :, i)')*d_new_phi_mat(:, i);
 end
 
-%for maximization using fminunc
-U = -U;
-d_U = -d_U;
+%for maximization of modulus using fminunc
+Usq_neg = -U^2;
+d_Usq_neg = -2*U*d_U;
 
 end
 

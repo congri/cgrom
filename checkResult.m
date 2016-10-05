@@ -1,18 +1,13 @@
+function [] = checkResult(theta_cIn, theta_cfIn, phiIn)
 %We sample the resulting distribution p(y|x, theta_c, theta_cf) here and compare to the true
 %solution
-
-%Main script for coarse-graining/reduced order modeling
-clear all;
-addpath('./MCMCsampler')
-addpath('./util')
-addpath('./FEM')
-addpath('./model')
-addpath('./params')
-
 
 %read params
 params;
 clear MCMC;
+theta_c = theta_cIn;
+theta_cf = theta_cfIn;
+phi = phiIn;
 %MCMC options
 MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
 MCMC.seed = 100;
@@ -23,39 +18,20 @@ MCMC.Xi_start = ones(nCoarse, 1);
 %only for random walk
 MCMC.randomWalk.proposalCov = stepWidth*eye(nCoarse);   %random walk proposal covariance
 
-fineCond.nSamples = 1;
+fineData.nSamples = 1;
 %type optimal parameters here
-theta_c.theta = [.1658
-                .00066372];
-theta_c.sigma = .021801;
 MCMC.MALA.stepWidth = theta_c.sigma;
 
-
-theta_cf.W = [1   2.4404e-16   1.2156e-15  -1.0733e-15
-      0.80365      0.10814    -0.022919    0.0019982
-      0.83083      0.16551   0.00021975  -0.00039017
-      0.80476      0.10361     0.047167     0.011653
-      0.82775  -0.00052949       0.1674   -0.0012295
-       1.0218     0.033287     0.036077      0.12347
-      0.83394   -0.0001552    -0.004427       0.1698];
-  
-theta_cf.S = [1.3287e-28            0            0            0            0            0            0
-            0       1.0153            0            0            0            0            0
-            0            0    2.284e-05            0            0            0            0
-            0            0            0       2.6667            0            0            0
-            0            0            0            0   0.00018717            0            0
-            0            0            0            0            0       2.0741            0
-            0            0            0            0            0            0   8.9364e-06];
-
 %generate reference data
+boundary.type;
 Fmesh = genMesh(boundary, nFine);
 %rng(1)
-[x, Tf, Phi] = genFineData(Fmesh, phi, heatSource, boundary, fineCond, nFine, nCoarse);
+[x, Tf] = genFineData(Fmesh, heatSource, boundary, fineData);
+Phi = designMatrix(phi, exp(x), nFine, nCoarse);
 
 %samples from p_c
 l_p_c = @(X) log_p_c(X, Phi, theta_c.theta, theta_c.sigma);
 out_p_c = MCMCsampler(l_p_c, MCMC.Xi_start, MCMC);
-
 
 %solve CG model
 MCMC_cf = MCMC;
@@ -72,8 +48,11 @@ for i = 1:MCMC.nSamples
     Cmesh.conductivity = out_p_c.samples(:, i);
     
     %draw from p_cf
+    Tf
     l_p_cf = @(Tfv) log_p_cf(Tfv, Cmesh, heatSource, boundary, theta_cf.W, theta_cf.S);
     out_p_cf = MCMCsampler(l_p_cf, MCMC_cf.Xi_start, MCMC_cf);
+    out_p_cf
+    out_p_cf.samples
     if i == 1
         y_samples = out_p_cf.samples;
     else
