@@ -7,7 +7,7 @@ lambda = reshape(lambda, nFine/nCoarse, nCoarse);
 Phi = zeros(nCoarse, size(phi, 1));
 for i = 1:nCoarse
     for j = 1:size(phi, 1)
-        Phi(i, j) = phi{j}(lambda(:,i));
+        Phi(i, j) = phi{j}(lambda(:, i));
     end
 end
 

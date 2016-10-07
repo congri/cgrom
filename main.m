@@ -7,6 +7,7 @@ addpath('./FEM')
 addpath('./model')
 addpath('./params')
 addpath('./computation')
+addpath('./optimization')
 
 rng('shuffle')
 tic;
@@ -154,10 +155,10 @@ for k = 2:(EM.maxIterations + 1)
         sumPhiTXmean = sumPhiTXmean + PhiArray(:,:,i)'*XMean(:,i);
     end
 
-    disp('Solving equation system...')
+    disp('M-step: find optimal params')
     [theta_c] = optTheta_c(theta_c, fineData, nCoarse, XNormSqMean,...
         sumPhiTXmean, sumPhiSq, sumPhiSqInv, mix_sigma, prior_type, prior_hyperparam);
-    disp('Equation system solved, current theta:')
+    disp('M-step done, current theta:')
     
     
 %     [zOpt] = optNewPhi(XMean, x, theta_c.theta, PhiArray, nFine, nCoarse)
@@ -173,39 +174,37 @@ for k = 2:(EM.maxIterations + 1)
     
     
     S = diag(theta_cf.S)'
-    % collect data in data arrays
-    collectData;
     
     if(mod(k - 1, basisUpdateGap) == 0)
         disp('Updating basis functions phi in p_c...')
 
-%         zOpt = optNewPhi(XMean, x, theta_c.theta, PhiArray, nFine, nCoarse);
-%         zOptVec = [zOptVec zOpt]
-%         if zOpt >= 30
-%             phi{end + 1, 1} = @(x) log(max(x));
-%         elseif zOpt <= -30
-%             phi{end + 1, 1} = @(x) log(min(x));
-%         else
-%             phi{end + 1, 1} = @(x) (1/zOpt)*log((1/FperC)*sum(x.^zOpt));
-%         end
-%         theta_c.theta(end + 1, 1) = 0;
-%         EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
-        
-        if size(phi, 1) == 1
-            phi{2, 1} = phi_2;
-            theta_c.theta = [theta_c.theta; 0];
-            EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
-        elseif size(phi, 1) == 2
-            phi{3, 1} = phi_1;
-            theta_c.theta = [theta_c.theta; 0];
-            EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
-        elseif size(phi, 1) == 3
-            phi{4, 1} = phi_4;
-            theta_c.theta = [theta_c.theta; 0];
-            EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+        [thetaTildeOpt, zOpt] = optNewPhi(XMean, x, theta_c.theta, PhiArray, nFine, nCoarse);
+        zOptVec = [zOptVec zOpt]
+        if zOpt >= 30
+            phi{end + 1, 1} = @(x) log(max(x));
+        elseif zOpt <= -30
+            phi{end + 1, 1} = @(x) log(min(x));
         else
-            error('Which basis function to add?')
+            phi{end + 1, 1} = @(x) (1/zOpt)*log((1/FperC)*sum(x.^zOpt));
         end
+        theta_c.theta(end + 1, 1) = thetaTildeOpt;
+        EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+        
+%         if size(phi, 1) == 1
+%             phi{2, 1} = phi_2;
+%             theta_c.theta = [theta_c.theta; 0];
+%             EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+%         elseif size(phi, 1) == 2
+%             phi{3, 1} = phi_1;
+%             theta_c.theta = [theta_c.theta; 0];
+%             EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+%         elseif size(phi, 1) == 3
+%             phi{4, 1} = phi_4;
+%             theta_c.theta = [theta_c.theta; 0];
+%             EM.theta = [EM.theta; zeros(1, size(EM.theta, 2))];
+%         else
+%             error('Which basis function to add?')
+%         end
         
         % Compute and store design matrix for each data point
         PhiArray = zeros(nCoarse, size(phi, 1), size(x, 2));
@@ -219,6 +218,8 @@ for k = 2:(EM.maxIterations + 1)
         end
         sumPhiSqInv = inv(sumPhiSq);
     end
+    % collect data in data arrays
+    collectData;
 end
 clear i j k m Wa Wa_mean Tc_dyadic_mean log_qi p_cf_exponent curr_theta XMean XNormSqMean;
 

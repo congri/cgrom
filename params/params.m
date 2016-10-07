@@ -103,7 +103,7 @@ phi_15 = @(x) mean(log(x));             %geometric mean
 
 phi = {phi_13};
 nBasis = numel(phi);
-basisUpdateGap = 20;
+basisUpdateGap = 30;
 
 %% start values
 theta_cf.S = 1*eye(nFine + 1);
@@ -114,16 +114,16 @@ theta_c.theta = (1/size(phi, 1))*ones(size(phi, 1), 1);
 theta_c.theta = 2*rand(size(phi, 1), 1) - 1;
 theta_c.sigma = .5;
 %what kind of prior for theta_c
-prior_type = 'hierarchical_jeffreys';    %hierarchical, laplace, gaussian or none
+prior_type = 'none';    %hierarchical_jeffreys, hierarchical_laplace, laplace, gaussian or none
 %prior hyperparams; obsolete for no prior and hierarchical prior
 % prior_hyperparam = 100*eye(size(phi, 1));     %variance of prior gaussian
-prior_hyperparam = 1e-2;                       %Exponential decay parameter for laplace
+prior_hyperparam = 1;                       %Exponential decay parameter for laplace
 
 
 
 %% MCMC options
 MCMC.method = 'MALA';                             %proposal type: randomWalk, nonlocal or MALA
-MCMC.seed = 6;
+MCMC.seed = 88;
 %thermalization steps; we perform a deterministic optimization of qi before each sampling, hence
 %there is no thermalization needed
 MCMC.nThermalization = 0;
@@ -161,7 +161,7 @@ mix_theta = 0;
 
 %% Object containing EM optimization optimization
 EM = EMstats;
-EM = EM.setMaxIterations(4*basisUpdateGap - 1);
+EM = EM.setMaxIterations(3*basisUpdateGap - 1);
 EM = EM.prealloc(fineData, nFine, nCoarse, nBasis);           %preallocation of data arrays
 
 
